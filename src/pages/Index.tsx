@@ -52,6 +52,14 @@ const Index = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="p-6 md:col-span-2 shadow-md">
+          <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-md">
+            <h3 className="text-sm font-medium text-amber-800 mb-1">Nota Importante</h3>
+            <p className="text-xs text-amber-700">
+              Questa applicazione richiede un server Python in esecuzione locale. Se stai visualizzando 
+              questa pagina in un ambiente di sola-anteprima (come Lovable), la connessione al backend 
+              non sarà possibile. Attiva la modalità simulazione per testare l'interfaccia.
+            </p>
+          </div>
           <TestSeleniumForm 
             onTestComplete={handleSongGenerated} 
           />

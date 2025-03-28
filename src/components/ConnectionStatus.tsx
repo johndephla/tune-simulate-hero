@@ -23,8 +23,16 @@ const ConnectionStatus = () => {
       
       try {
         console.log("Checking Selenium connection status...");
-        // Use window.location.hostname to get the current host, but use port 8000
-        const apiUrl = `http://${window.location.hostname}:8000/status`;
+        
+        // In un ambiente di sviluppo, prova prima localhost
+        let apiUrl = `http://localhost:8000/status`;
+        
+        // Se siamo in produzione o in un ambiente hosted, potrebbe essere necessario cambiare l'URL
+        if (window.location.hostname !== 'localhost') {
+          // Prova con il dominio corrente ma sulla porta 8000
+          apiUrl = `http://${window.location.hostname}:8000/status`;
+        }
+        
         console.log("Connecting to API at:", apiUrl);
         
         // Try to connect to Selenium by making a request to check its status
@@ -33,6 +41,8 @@ const ConnectionStatus = () => {
           headers: {
             'Content-Type': 'application/json',
           },
+          // Importante: timeout per evitare attese troppo lunghe
+          signal: AbortSignal.timeout(5000)
         });
         
         if (response.ok) {
@@ -52,7 +62,10 @@ const ConnectionStatus = () => {
       } catch (error) {
         console.error("Error checking Selenium connection:", error);
         setIsConnected(false);
-        setErrorMessage("Failed to connect to backend server. Make sure 'python main.py' is running and accessible on port 8000.");
+        setErrorMessage(
+          "Non è possibile connettersi al server backend. Assicurati che 'python main.py' sia in esecuzione " +
+          "e che la porta 8000 sia accessibile. In un ambiente browser, potresti dover attivare la modalità simulazione."
+        );
       } finally {
         setIsChecking(false);
       }
@@ -123,6 +136,11 @@ const ConnectionStatus = () => {
         >
           {simulateConnection ? "Disattiva simulazione" : "Simula connessione"}
         </button>
+        {simulateConnection && (
+          <div className="text-xs text-green-600 mt-1">
+            Modalità simulazione attiva. Funzionalità limitate.
+          </div>
+        )}
       </div>
     </div>
   );

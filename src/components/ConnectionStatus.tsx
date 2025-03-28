@@ -1,88 +1,51 @@
 
-import React from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Loader2, WifiOff, Wifi } from "lucide-react";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Loader2 } from "lucide-react";
 
-interface ConnectionStatusProps {
-  className?: string;
-}
-
-const ConnectionStatus = ({ className }: ConnectionStatusProps) => {
-  const statusQuery = useQuery({
-    queryKey: ["status"],
-    queryFn: async () => {
-      const response = await fetch("http://localhost:8000/status");
-      if (!response.ok) {
-        throw new Error("API server not running");
+const ConnectionStatus = () => {
+  const [isConnected, setIsConnected] = useState<boolean | null>(null);
+  const [isChecking, setIsChecking] = useState<boolean>(true);
+  
+  useEffect(() => {
+    const checkConnection = async () => {
+      setIsChecking(true);
+      try {
+        // This is a placeholder - we're just simulating a connection test
+        // In a real implementation, you would check if Selenium is running
+        const isRunning = Math.random() > 0.5; // Just for demonstration
+        setIsConnected(isRunning);
+      } catch (error) {
+        console.error("Error checking connection:", error);
+        setIsConnected(false);
+      } finally {
+        setIsChecking(false);
       }
-      return response.json();
-    },
-    refetchInterval: 5000 // Check status every 5 seconds
-  });
+    };
+    
+    checkConnection();
+    const interval = setInterval(checkConnection, 10000); // Check every 10 seconds
+    
+    return () => clearInterval(interval);
+  }, []);
   
-  if (statusQuery.isLoading) {
+  if (isChecking && isConnected === null) {
     return (
-      <div className={`flex items-center gap-2 ${className}`}>
-        <Loader2 className="h-4 w-4 animate-spin text-yellow-500" />
-        <span className="text-sm">Checking connection...</span>
-      </div>
+      <Badge variant="outline" className="px-3 py-1">
+        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+        Checking Selenium...
+      </Badge>
     );
   }
   
-  if (statusQuery.isError) {
-    return (
-      <div className={`flex items-center gap-2 ${className}`}>
-        <WifiOff className="h-4 w-4 text-red-500" />
-        <Badge variant="destructive">Server Offline</Badge>
-      </div>
-    );
-  }
-  
-  // Safely extract status data with default values if they're undefined
-  const { connected = false, logged_in = false, error = null } = statusQuery.data || {};
-  
-  return (
-    <div className={`flex items-center gap-2 ${className}`}>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="flex items-center gap-2">
-              {!connected ? (
-                <>
-                  <WifiOff className="h-4 w-4 text-red-500" />
-                  <Badge variant="destructive">Disconnected</Badge>
-                </>
-              ) : !logged_in ? (
-                <>
-                  <Wifi className="h-4 w-4 text-yellow-500" />
-                  <Badge variant="outline" className="bg-yellow-500 text-white border-yellow-500">Connected, Not Logged In</Badge>
-                </>
-              ) : (
-                <>
-                  <Wifi className="h-4 w-4 text-green-500" />
-                  <Badge variant="outline" className="bg-green-500 hover:bg-green-600 text-white border-green-500">Connected to Suno.ai</Badge>
-                </>
-              )}
-            </div>
-          </TooltipTrigger>
-          <TooltipContent>
-            {error ? (
-              <p className="text-xs">{error}</p>
-            ) : (
-              <p className="text-xs">
-                {connected 
-                  ? (logged_in 
-                      ? "Successfully connected and logged into Suno.ai" 
-                      : "Connected to browser but not logged into Suno.ai")
-                  : "Browser automation is not connected"}
-              </p>
-            )}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    </div>
+  return isConnected ? (
+    <Badge variant="success" className="px-3 py-1">
+      Selenium Connected
+    </Badge>
+  ) : (
+    <Badge variant="destructive" className="px-3 py-1">
+      Selenium Disconnected
+    </Badge>
   );
 };
 

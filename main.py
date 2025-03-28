@@ -22,7 +22,12 @@ logger = logging.getLogger(__name__)
 
 def start_api_server():
     """Start the FastAPI server in a separate thread"""
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    logger.info("Starting API server at http://127.0.0.1:8000")
+    try:
+        uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")
+    except Exception as e:
+        logger.error(f"Failed to start API server: {str(e)}")
+        print(f"Error starting API server: {str(e)}")
 
 if __name__ == "__main__":
     logger.info("Starting Suno.ai Automation")
@@ -84,6 +89,14 @@ if __name__ == "__main__":
                 chrome_user_data_dir=config.get("CHROME_USER_DATA_DIR")
             )
     
+        # Check if automation initialized correctly
+        if not automation.connected:
+            logger.warning("Selenium automation connected but in a warning state. Check for errors.")
+            print("Warning: Selenium connected but may have initialization issues.")
+            print(f"Error details: {automation.connection_error}")
+        else:
+            logger.info("Selenium automation initialized successfully")
+    
         # Store automation instance in app state for API access
         app.state.automation = automation
         
@@ -92,7 +105,9 @@ if __name__ == "__main__":
         server_thread.start()
         
         logger.info(f"API server started at http://127.0.0.1:8000")
-        logger.info("Press Ctrl+C to exit")
+        print(f"API server started at http://127.0.0.1:8000")
+        print("React frontend can now connect to the API")
+        print("Press Ctrl+C to exit")
         
         try:
             # Keep main thread alive

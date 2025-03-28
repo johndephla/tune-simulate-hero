@@ -29,11 +29,14 @@ class GenerateRequest(BaseModel):
 @app.get("/status")
 async def get_status():
     """Check if the server is running and the bot is logged in"""
+    logger.info("Status check received")
     if not hasattr(app.state, "automation"):
+        logger.warning("Status check failed: Automation not initialized")
         return {"status": "running", "logged_in": False, "connected": False, "error": "Automation not initialized"}
     
     # Get detailed status from automation
     automation_status = app.state.automation.get_status()
+    logger.info(f"Returning status: {automation_status}")
     
     return {
         "status": "running", 

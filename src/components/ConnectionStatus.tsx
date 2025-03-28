@@ -8,6 +8,7 @@ const ConnectionStatus = () => {
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState<boolean>(true);
   const [simulateConnection, setSimulateConnection] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   useEffect(() => {
     const checkConnection = async () => {
@@ -16,10 +17,12 @@ const ConnectionStatus = () => {
       if (simulateConnection) {
         setIsConnected(true);
         setIsChecking(false);
+        setErrorMessage(null);
         return;
       }
       
       try {
+        console.log("Checking Selenium connection status...");
         // Try to connect to Selenium by making a request to check its status
         const response = await fetch('http://localhost:8000/status', {
           method: 'GET',
@@ -30,13 +33,22 @@ const ConnectionStatus = () => {
         
         if (response.ok) {
           const data = await response.json();
+          console.log("Selenium connection status:", data);
           setIsConnected(data.connected);
+          if (data.error) {
+            setErrorMessage(data.error);
+          } else {
+            setErrorMessage(null);
+          }
         } else {
+          console.error("Failed to get status from server:", response.statusText);
           setIsConnected(false);
+          setErrorMessage(`HTTP Error: ${response.status} ${response.statusText}`);
         }
       } catch (error) {
         console.error("Error checking Selenium connection:", error);
         setIsConnected(false);
+        setErrorMessage("Failed to connect to backend server. Make sure 'python main.py' is running.");
       } finally {
         setIsChecking(false);
       }
@@ -86,9 +98,19 @@ const ConnectionStatus = () => {
           Selenium Connected
         </Badge>
       ) : (
-        <Badge variant="destructive" className="px-3 py-1 mb-2">
-          Selenium Disconnected
-        </Badge>
+        <div>
+          <Badge variant="destructive" className="px-3 py-1 mb-2">
+            Selenium Disconnected
+          </Badge>
+          {errorMessage && (
+            <div className="text-xs text-red-500 max-w-xs mt-1 mb-2">
+              {errorMessage}
+            </div>
+          )}
+          <div className="text-xs mt-1 text-gray-600">
+            Assicurati di aver avviato "python main.py" e che la porta 8000 sia accessibile.
+          </div>
+        </div>
       )}
       <div className="text-xs">
         <button 

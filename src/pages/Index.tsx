@@ -5,10 +5,9 @@ import { Card } from "@/components/ui/card";
 import { HelpCircleIcon, SettingsIcon } from "lucide-react";
 import SongHistory from "@/components/SongHistory";
 import ConnectionStatus from "@/components/ConnectionStatus";
-import { SongResult } from "@/components/TestSeleniumForm";
+import TestSeleniumForm, { SongResult } from "@/components/TestSeleniumForm";
 import HelpDialog from "@/components/HelpDialog";
 import SettingsDialog from "@/components/SettingsDialog";
-import TestSeleniumForm from "@/components/TestSeleniumForm";
 
 const Index = () => {
   const [history, setHistory] = useState<SongResult[]>([]);

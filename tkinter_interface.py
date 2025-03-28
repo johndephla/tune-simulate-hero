@@ -1,3 +1,4 @@
+
 import tkinter as tk
 from tkinter import ttk, scrolledtext, filedialog, messagebox
 import threading
@@ -5,6 +6,7 @@ import os
 import sys
 import logging
 import platform
+import webbrowser
 from browser_automation import SunoAutomation
 from config import get_config
 
@@ -60,6 +62,7 @@ class SunoAutomationGUI:
     
     def create_main_layout(self):
         """Creare il layout principale dell'interfaccia"""
+        # ... keep existing code (main layout creation)
         # Frame principale
         main_frame = ttk.Frame(self.root, padding=10)
         main_frame.pack(fill=tk.BOTH, expand=True)
@@ -167,6 +170,31 @@ class SunoAutomationGUI:
         # Placeholder per storia vuota
         self.empty_history_label = ttk.Label(self.history_frame, text="Nessuna canzone generata")
         self.empty_history_label.pack(pady=20)
+        
+        # Pulsanti aggiuntivi per problemi comuni
+        help_frame = ttk.Frame(right_frame)
+        help_frame.pack(fill=tk.X, pady=5)
+        
+        download_driver_button = ttk.Button(
+            help_frame, 
+            text="Scarica ChromeDriver", 
+            command=self.open_chromedriver_download
+        )
+        download_driver_button.pack(fill=tk.X, pady=2)
+        
+        check_chrome_button = ttk.Button(
+            help_frame, 
+            text="Verifica Versione Chrome", 
+            command=self.check_chrome_version
+        )
+        check_chrome_button.pack(fill=tk.X, pady=2)
+        
+        open_log_button = ttk.Button(
+            help_frame, 
+            text="Apri File di Log", 
+            command=self.open_log_file
+        )
+        open_log_button.pack(fill=tk.X, pady=2)
     
     def initialize_automation(self):
         """Inizializza il modulo di automazione di Selenium in un thread separato"""
@@ -176,6 +204,16 @@ class SunoAutomationGUI:
             # Verifica se chromedriver esiste nella directory corrente
             self.log_message(f"Sistema operativo: {platform.system()}")
             
+            # Verifica versione di Chrome
+            try:
+                chrome_version = self.get_chrome_version()
+                if chrome_version:
+                    self.log_message(f"Versione Chrome: {chrome_version}")
+                else:
+                    self.log_message("Impossibile determinare la versione di Chrome automaticamente")
+            except Exception as e:
+                self.log_message(f"Impossibile determinare la versione di Chrome: {str(e)}")
+            
             use_chrome_profile = self.config.get("USE_CHROME_PROFILE", True)
             chrome_user_data_dir = self.config.get("CHROME_USER_DATA_DIR")
             headless = self.config.get("HEADLESS", "False").lower() == "true"
@@ -184,22 +222,7 @@ class SunoAutomationGUI:
             self.log_message(f"Chrome profile dir: {chrome_user_data_dir}")
             self.log_message(f"Headless mode: {headless}")
             
-            # Verifica versione di Chrome
-            try:
-                import subprocess
-                if platform.system() == "Windows":
-                    result = subprocess.run(["wmic", "datafile", "where", "name='C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe'", "get", "Version", "/value"], 
-                                      capture_output=True, text=True, check=False)
-                elif platform.system() == "Darwin":  # macOS
-                    result = subprocess.run(["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "--version"], 
-                                      capture_output=True, text=True, check=False)
-                else:  # Linux
-                    result = subprocess.run(["google-chrome", "--version"], 
-                                      capture_output=True, text=True, check=False)
-                self.log_message(f"Versione Chrome: {result.stdout.strip()}")
-            except Exception as e:
-                self.log_message(f"Impossibile determinare la versione di Chrome: {str(e)}")
-            
+            # Prova a creare l'automazione
             if use_chrome_profile and chrome_user_data_dir:
                 self.log_message(f"Utilizzo profilo Chrome: {chrome_user_data_dir}")
                 self.automation = SunoAutomation(
@@ -243,15 +266,147 @@ class SunoAutomationGUI:
             self.log_message(f"Errore durante l'inizializzazione: {error_message}")
             self.show_error_message(error_message)
     
+    def get_chrome_version(self):
+        """Ottieni la versione di Chrome installata"""
+        try:
+            if platform.system() == "Windows":
+                import subprocess
+                from subprocess import PIPE
+                
+                # Primo tentativo: usa il registro di Windows
+                try:
+                    result = subprocess.run(['reg', 'query', 'HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Google Chrome', '/v', 'version'], 
+                                            stdout=PIPE, stderr=PIPE, text=True, check=False)
+                    if result.returncode == 0:
+                        # Estrai la versione dall'output
+                        for line in result.stdout.split('\n'):
+                            if 'version' in line.lower():
+                                return line.split()[-1]
+                except:
+                    pass
+                
+                # Secondo tentativo: controlla direttamente il file di Chrome
+                try:
+                    result = subprocess.run(["wmic", "datafile", "where", "name='C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe'", "get", "Version", "/value"], 
+                                      stdout=PIPE, stderr=PIPE, text=True, check=False)
+                    if result.returncode == 0 and "Version=" in result.stdout:
+                        return result.stdout.split("=")[1].strip()
+                except:
+                    pass
+                
+                # Terzo tentativo: prova il percorso alternativo
+                try:
+                    result = subprocess.run(["wmic", "datafile", "where", "name='C:\\\\Program Files (x86)\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe'", "get", "Version", "/value"], 
+                                      stdout=PIPE, stderr=PIPE, text=True, check=False)
+                    if result.returncode == 0 and "Version=" in result.stdout:
+                        return result.stdout.split("=")[1].strip()
+                except:
+                    pass
+                    
+            elif platform.system() == "Darwin":  # macOS
+                try:
+                    import subprocess
+                    result = subprocess.run(["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "--version"], 
+                                      capture_output=True, text=True, check=False)
+                    if result.returncode == 0:
+                        return result.stdout.strip().split("Chrome ")[1]
+                except:
+                    pass
+            else:  # Linux
+                try:
+                    import subprocess
+                    result = subprocess.run(["google-chrome", "--version"], 
+                                      capture_output=True, text=True, check=False)
+                    if result.returncode == 0:
+                        return result.stdout.strip().split("Google Chrome ")[1]
+                except:
+                    pass
+        except Exception as e:
+            logger.error(f"Errore nel rilevare la versione di Chrome: {e}")
+            
+        return None
+    
+    def open_chromedriver_download(self):
+        """Apre la pagina di download di ChromeDriver"""
+        webbrowser.open("https://chromedriver.chromium.org/downloads")
+        self.log_message("Pagina di download ChromeDriver aperta nel browser")
+        
+        # Mostra ulteriori istruzioni
+        messagebox.showinfo("Download ChromeDriver", 
+            "Per scaricare manualmente ChromeDriver:\n\n"
+            "1. Determina la versione di Chrome dal pulsante 'Verifica Versione Chrome'\n"
+            "2. Scarica la versione corrispondente di ChromeDriver dal sito\n"
+            "3. Estrai il file scaricato\n"
+            "4. Crea una cartella 'chromedriver' nella tua home directory\n"
+            f"5. Copia il file chromedriver.exe nella cartella: {os.path.join(os.path.expanduser('~'), 'chromedriver')}"
+        )
+    
+    def check_chrome_version(self):
+        """Verifica e mostra la versione di Chrome installata"""
+        version = self.get_chrome_version()
+        if version:
+            messagebox.showinfo("Versione Chrome", f"La versione di Google Chrome installata è: {version}")
+            self.log_message(f"Versione Chrome rilevata: {version}")
+        else:
+            messagebox.showerror("Errore", "Impossibile determinare la versione di Chrome.\n\n"
+                                 "Verifica che Google Chrome sia installato correttamente.")
+            self.log_message("Impossibile determinare la versione di Chrome")
+    
+    def open_log_file(self):
+        """Apre il file di log nell'editor predefinito"""
+        log_file = "suno_automation.log"
+        if os.path.exists(log_file):
+            if platform.system() == "Windows":
+                os.startfile(log_file)
+            elif platform.system() == "Darwin":  # macOS
+                import subprocess
+                subprocess.call(['open', log_file])
+            else:  # Linux
+                import subprocess
+                subprocess.call(['xdg-open', log_file])
+            self.log_message(f"File di log aperto: {log_file}")
+        else:
+            messagebox.showerror("Errore", f"File di log non trovato: {log_file}")
+    
     def show_error_message(self, error_message):
         """Mostra un messaggio di errore in una finestra di dialogo"""
+        error_info = "Errore sconosciuto"
+        solutions = [
+            "1. Assicurati che Chrome sia installato e aggiornato",
+            "2. Verifica che il percorso al profilo Chrome sia corretto nel file .env",
+            "3. Se stai usando un profilo Chrome esistente, chiudi tutte le istanze di Chrome",
+            "4. Prova a eseguire l'applicazione senza il profilo Chrome (modifica USE_CHROME_PROFILE=False nel file .env)"
+        ]
+        
+        # Analizza l'errore per fornire messaggi più specifici
+        if "not a valid Win32 application" in error_message:
+            error_info = "Il file ChromeDriver non è compatibile con la tua versione di Chrome o con il sistema operativo"
+            solutions = [
+                "1. Usa il pulsante 'Verifica Versione Chrome' per controllare la versione installata",
+                "2. Usa il pulsante 'Scarica ChromeDriver' per ottenere la versione corretta",
+                "3. Assicurati di scaricare ChromeDriver per la tua architettura (32-bit o 64-bit)",
+                "4. Crea una cartella 'chromedriver' nella tua home directory e metti lì il file scaricato",
+                f"5. Percorso suggerito: {os.path.join(os.path.expanduser('~'), 'chromedriver', 'chromedriver.exe')}"
+            ]
+        elif "session not created" in error_message and "Chrome version" in error_message:
+            error_info = "Versione di ChromeDriver non compatibile con la tua versione di Chrome"
+            solutions = [
+                "1. Usa il pulsante 'Verifica Versione Chrome' per controllare la versione installata",
+                "2. Usa il pulsante 'Scarica ChromeDriver' per ottenere la versione corretta per il tuo Chrome"
+            ]
+        elif "Chrome failed to start" in error_message:
+            error_info = "Chrome non è riuscito ad avviarsi correttamente"
+            solutions = [
+                "1. Chiudi tutte le istanze di Chrome in esecuzione",
+                "2. Controlla se il tuo antivirus blocca Chrome quando viene avviato da Selenium",
+                "3. Prova ad eseguire l'applicazione con privilegi di amministratore",
+                "4. Disattiva temporaneamente l'opzione USE_CHROME_PROFILE nel file .env"
+            ]
+        
         self.root.after(0, lambda: messagebox.showerror("Errore di connessione", 
             f"Impossibile connettersi a Selenium: {error_message}\n\n" +
-            "Possibili soluzioni:\n" +
-            "1. Assicurati che Chrome sia installato e aggiornato\n" +
-            "2. Verifica che il percorso al profilo Chrome sia corretto nel file .env\n" +
-            "3. Se stai usando un profilo Chrome esistente, chiudi tutte le istanze di Chrome\n" +
-            "4. Prova a eseguire l'applicazione senza il profilo Chrome (modifica USE_CHROME_PROFILE=False nel file .env)"
+            f"Problema: {error_info}\n\n" +
+            "Possibili soluzioni:\n" + "\n".join(solutions)
         ))
     
     def update_status(self, connected, message):
@@ -270,6 +425,8 @@ class SunoAutomationGUI:
         self.log_text.see(tk.END)
         self.log_text.config(state='disabled')
         logger.info(message)
+    
+    # ... keep existing code (generate_song, _generate_song_thread, animate_progress, stop_progress, toggle_controls, add_to_history, open_url, open_file)
     
     def generate_song(self):
         """Gestisce la generazione di una canzone"""

@@ -6,6 +6,7 @@ import os
 import platform
 import tempfile
 import subprocess
+import sys
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -14,6 +15,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException, WebDriverException
 from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.core.os_manager import ChromeType
 import pyautogui
 from utils import random_wait, ensure_dir_exists
 
@@ -92,28 +94,107 @@ class SunoAutomation:
         chrome_options.add_argument("--disable-infobars")
         chrome_options.add_argument("--disable-extensions")
         
+        # Try multiple methods to initialize Chrome driver
+        driver = None
+        error_messages = []
+        
+        # Method 1: Using webdriver_manager (Auto-detect)
         try:
-            logger.info("Installing/updating ChromeDriver using webdriver_manager")
-            service = Service(ChromeDriverManager().install())
+            logger.info("Method 1: Installing/updating ChromeDriver using webdriver_manager auto-detection")
+            # Specify a custom cache path to avoid permission issues
+            driver_cache_path = os.path.join(os.path.expanduser("~"), ".wdm", "drivers")
+            os.makedirs(driver_cache_path, exist_ok=True)
+            
+            service = Service(ChromeDriverManager(path=driver_cache_path).install())
             driver = webdriver.Chrome(service=service, options=chrome_options)
-            logger.info("Chrome WebDriver initialized successfully")
+            logger.info("Chrome WebDriver initialized successfully with Method 1")
             
             # Impostazioni anti-detection
             driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-            
             return driver
         except Exception as e:
-            logger.error(f"Error initializing Chrome WebDriver: {str(e)}")
+            error_msg = f"Method 1 failed: {str(e)}"
+            logger.warning(error_msg)
+            error_messages.append(error_msg)
             
-            # Prova un metodo alternativo
-            try:
-                logger.info("Trying alternative WebDriver initialization method")
-                driver = webdriver.Chrome(options=chrome_options)
-                logger.info("Alternative WebDriver initialization successful")
-                return driver
-            except Exception as alt_e:
-                logger.error(f"Alternative method also failed: {str(alt_e)}")
-                raise Exception(f"Failed to initialize Chrome driver: {str(e)}. Alternative method also failed: {str(alt_e)}")
+        # Method 2: Direct Chrome driver without service
+        try:
+            logger.info("Method 2: Using Chrome driver directly")
+            driver = webdriver.Chrome(options=chrome_options)
+            logger.info("Chrome WebDriver initialized successfully with Method 2")
+            return driver
+        except Exception as e:
+            error_msg = f"Method 2 failed: {str(e)}"
+            logger.warning(error_msg)
+            error_messages.append(error_msg)
+        
+        # Method 3: Using the system's Chrome installation with webdriver_manager
+        try:
+            logger.info("Method 3: Using system Chrome with specific Chrome type")
+            if platform.system() == "Windows":
+                chrome_type = ChromeType.CHROMIUM
+            else:
+                chrome_type = ChromeType.GOOGLE
+                
+            service = Service(ChromeDriverManager(chrome_type=chrome_type).install())
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+            logger.info("Chrome WebDriver initialized successfully with Method 3")
+            return driver
+        except Exception as e:
+            error_msg = f"Method 3 failed: {str(e)}"
+            logger.warning(error_msg)
+            error_messages.append(error_msg)
+        
+        # Method 4: Specify a compatible Chrome driver version explicitly
+        try:
+            logger.info("Method 4: Specifying a compatible Chrome driver version explicitly")
+            # Try with a specific version that might be compatible with many Chrome versions
+            service = Service(ChromeDriverManager(version="113.0.5672.63").install())
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+            logger.info("Chrome WebDriver initialized successfully with Method 4")
+            return driver
+        except Exception as e:
+            error_msg = f"Method 4 failed: {str(e)}"
+            logger.warning(error_msg)
+            error_messages.append(error_msg)
+        
+        # Method 5: Try to download manually if possible
+        try:
+            logger.info("Method 5: Using manually downloaded ChromeDriver")
+            # Create a directory for the driver if it doesn't exist
+            driver_dir = os.path.join(os.path.expanduser("~"), "chromedriver")
+            os.makedirs(driver_dir, exist_ok=True)
+            
+            driver_path = os.path.join(driver_dir, "chromedriver.exe" if platform.system() == "Windows" else "chromedriver")
+            
+            # Check if driver already exists
+            if not os.path.isfile(driver_path):
+                logger.warning(f"ChromeDriver not found at {driver_path}. Please download manually.")
+                logger.info("Visit https://chromedriver.chromium.org/downloads to download the correct version")
+                logger.info(f"Save it to: {driver_path}")
+            else:
+                logger.info(f"Using existing ChromeDriver at {driver_path}")
+                
+            service = Service(executable_path=driver_path)
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+            logger.info("Chrome WebDriver initialized successfully with Method 5")
+            return driver
+        except Exception as e:
+            error_msg = f"Method 5 failed: {str(e)}"
+            logger.warning(error_msg)
+            error_messages.append(error_msg)
+        
+        # Final error message with all attempts
+        combined_error = "Failed to initialize Chrome driver after multiple attempts:\n" + "\n".join(error_messages)
+        if "not a valid Win32 application" in " ".join(error_messages):
+            combined_error += "\n\nThe error suggests a mismatch between ChromeDriver and your Chrome version or system architecture. Please:"
+            combined_error += "\n1. Make sure you have Chrome installed and up to date"
+            combined_error += "\n2. Check if you're using a 32-bit or 64-bit system and match the ChromeDriver accordingly"
+            combined_error += "\n3. Try downloading the ChromeDriver manually from https://chromedriver.chromium.org/downloads"
+            combined_error += f"\n4. Save it to: {os.path.join(os.path.expanduser('~'), 'chromedriver', 'chromedriver.exe')}"
+        
+        logger.error(combined_error)
+        raise Exception(combined_error)
     
     # ... keep existing code (is_connected, get_status, ecc.)
     
@@ -175,6 +256,8 @@ class SunoAutomation:
         time.sleep(random.uniform(0.1, 0.3))
         pyautogui.click()
     
+    # ... keep existing code (login, set_instrumental_mode, enter_music_style, enter_title, generate_song, download_song, close)
+    
     def login(self):
         """Login to Suno.ai"""
         if not self.connected or not self.driver:
@@ -229,8 +312,6 @@ class SunoAutomation:
                         self.connection_error = f"Google login failed: {str(e)}"
                         return False
             
-            # ... keep existing code (login procedure and rest of the login method)
-            
             # Traditional login path (email/password)
             if not self.use_chrome_profile and self.email and self.password:
                 # Wait for login button and click it
@@ -279,8 +360,6 @@ class SunoAutomation:
             self.connection_error = f"Login failed: {str(e)}"
             self.logged_in = False
             return False
-    
-    # ... keep existing code (set_instrumental_mode, enter_music_style, enter_title, generate_song, download_song, close)
     
     def set_instrumental_mode(self, instrumental=True):
         """Set the instrumental mode toggle"""

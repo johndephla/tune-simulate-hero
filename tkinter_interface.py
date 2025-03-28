@@ -6,7 +6,7 @@ import sys
 import logging
 import platform
 import webbrowser
-from browser_automation import SunoAutomation
+from playwright_automation import SunoAutomation
 from config import get_config
 
 # Configurazione del logging
@@ -38,7 +38,7 @@ class SunoAutomationGUI:
         # Creare il layout principale
         self.create_main_layout()
         
-        # Inizializzare Selenium in un thread separato
+        # Inizializzare Playwright in un thread separato
         self.init_thread = threading.Thread(target=self.initialize_automation)
         self.init_thread.daemon = True
         self.init_thread.start()
@@ -202,27 +202,24 @@ class SunoAutomationGUI:
         open_log_button.pack(fill=tk.X, pady=2)
     
     def open_suno_website(self):
-        """Apre Suno.com nel browser predefinito"""
+        """Open Suno.com in the default browser"""
         webbrowser.open("https://suno.com/create?wid=default")
-        self.log_message("Suno.com aperto nel browser predefinito")
+        self.log_message("Suno.com opened in the default browser")
     
     def initialize_automation(self):
-        """Inizializza il modulo di automazione di Selenium in un thread separato"""
-        self.log_message("Inizializzazione di Selenium...")
+        """Initializes the Playwright automation module in a separate thread"""
+        self.log_message("Initializing Playwright...")
         
         try:
-            # Verifica se chromedriver esiste nella directory corrente
-            self.log_message(f"Sistema operativo: {platform.system()}")
-            
-            # Verifica versione di Chrome
+            # Verify Chrome version
             try:
                 chrome_version = self.get_chrome_version()
                 if chrome_version:
-                    self.log_message(f"Versione Chrome: {chrome_version}")
+                    self.log_message(f"Chrome version: {chrome_version}")
                 else:
-                    self.log_message("Impossibile determinare la versione di Chrome automaticamente")
+                    self.log_message("Unable to determine Chrome version automatically")
             except Exception as e:
-                self.log_message(f"Impossibile determinare la versione di Chrome: {str(e)}")
+                self.log_message(f"Unable to determine Chrome version: {str(e)}")
             
             use_chrome_profile = self.config.get("USE_CHROME_PROFILE", True)
             chrome_user_data_dir = self.config.get("CHROME_USER_DATA_DIR")
@@ -232,23 +229,23 @@ class SunoAutomationGUI:
             self.log_message(f"Chrome profile dir: {chrome_user_data_dir}")
             self.log_message(f"Headless mode: {headless}")
             
-            # Prova a creare l'automazione
+            # Try to create the automation
             if use_chrome_profile and chrome_user_data_dir:
-                self.log_message(f"Utilizzo profilo Chrome: {chrome_user_data_dir}")
+                self.log_message(f"Using Chrome profile: {chrome_user_data_dir}")
                 self.automation = SunoAutomation(
                     headless=headless,
                     use_chrome_profile=True,
                     chrome_user_data_dir=chrome_user_data_dir
                 )
             elif self.config.get("EMAIL") and self.config.get("PASSWORD"):
-                self.log_message("Utilizzo credenziali email/password")
+                self.log_message("Using email/password credentials")
                 self.automation = SunoAutomation(
                     email=self.config.get("EMAIL"),
                     password=self.config.get("PASSWORD"),
                     headless=headless
                 )
             else:
-                self.log_message("Tentativo con il profilo Chrome predefinito")
+                self.log_message("Attempting with default Chrome profile")
                 self.automation = SunoAutomation(
                     headless=headless,
                     use_chrome_profile=True,
@@ -256,24 +253,24 @@ class SunoAutomationGUI:
                 )
             
             if self.automation.connected:
-                self.root.after(0, self.update_status, True, "Selenium connesso")
-                self.log_message("Inizializzazione completata con successo!")
+                self.root.after(0, self.update_status, True, "Playwright connected")
+                self.log_message("Initialization completed successfully!")
                 
-                # Tentativo di login
-                self.log_message("Tentativo di login automatico...")
+                # Attempt login
+                self.log_message("Attempting automatic login...")
                 if self.automation.login():
-                    self.log_message("Login effettuato con successo!")
+                    self.log_message("Login successful!")
                 else:
-                    self.log_message("Login non riuscito o già effettuato")
+                    self.log_message("Login failed or already logged in")
             else:
-                error_message = self.automation.connection_error if hasattr(self.automation, 'connection_error') and self.automation.connection_error else "Errore sconosciuto"
-                self.root.after(0, self.update_status, False, f"Errore: {error_message}")
-                self.log_message(f"Errore di connessione Selenium: {error_message}")
+                error_message = self.automation.connection_error if hasattr(self.automation, 'connection_error') and self.automation.connection_error else "Unknown error"
+                self.root.after(0, self.update_status, False, f"Error: {error_message}")
+                self.log_message(f"Playwright connection error: {error_message}")
                 self.show_error_message(error_message)
         except Exception as e:
             error_message = str(e)
-            self.root.after(0, self.update_status, False, f"Errore: {error_message}")
-            self.log_message(f"Errore durante l'inizializzazione: {error_message}")
+            self.root.after(0, self.update_status, False, f"Error: {error_message}")
+            self.log_message(f"Error during initialization: {error_message}")
             self.show_error_message(error_message)
     
     def get_chrome_version(self):
@@ -379,48 +376,48 @@ class SunoAutomationGUI:
             messagebox.showerror("Errore", f"File di log non trovato: {log_file}")
     
     def show_error_message(self, error_message):
-        """Mostra un messaggio di errore in una finestra di dialogo"""
-        error_info = "Errore sconosciuto"
+        """Show an error message in a dialog"""
+        error_info = "Unknown error"
         solutions = [
-            "1. Assicurati che Chrome sia installato e aggiornato",
-            "2. Verifica che il percorso al profilo Chrome sia corretto nel file .env",
-            "3. Se stai usando un profilo Chrome esistente, chiudi tutte le istanze di Chrome",
-            "4. Prova a eseguire l'applicazione senza il profilo Chrome (modifica USE_CHROME_PROFILE=False nel file .env)"
+            "1. Make sure Chrome is installed and updated",
+            "2. Verify that the Chrome profile path is correct in the .env file",
+            "3. If using an existing Chrome profile, close all Chrome instances",
+            "4. Try running the application without the Chrome profile (modify USE_CHROME_PROFILE=False in the .env file)",
+            "5. Check if Playwright is installed correctly (pip install playwright && playwright install)"
         ]
         
-        # Analizza l'errore per fornire messaggi più specifici
+        # Analyze the error to provide more specific messages
         if "not a valid Win32 application" in error_message:
-            error_info = "Il file ChromeDriver non è compatibile con la tua versione di Chrome o con il sistema operativo"
+            error_info = "The Playwright browser executable is not compatible with your Chrome version or operating system"
             solutions = [
-                "1. Usa il pulsante 'Verifica Versione Chrome' per controllare la versione installata",
-                "2. Usa il pulsante 'Scarica ChromeDriver' per ottenere la versione corretta",
-                "3. Assicurati di scaricare ChromeDriver per la tua architettura (32-bit o 64-bit)",
-                "4. Crea una cartella 'chromedriver' nella tua home directory e metti lì il file scaricato",
-                f"5. Percorso suggerito: {os.path.join(os.path.expanduser('~'), 'chromedriver', 'chromedriver.exe')}"
+                "1. Use 'pip install playwright' to install Playwright",
+                "2. Run 'playwright install' to install the browser binaries",
+                "3. Make sure you have the correct Python architecture (32-bit or 64-bit)",
+                "4. Try reinstalling Playwright: 'pip uninstall playwright && pip install playwright && playwright install'"
             ]
-        elif "session not created" in error_message and "Chrome version" in error_message:
-            error_info = "Versione di ChromeDriver non compatibile con la tua versione di Chrome"
+        elif "Browser was not found" in error_message:
+            error_info = "Playwright couldn't find the browser installation"
             solutions = [
-                "1. Usa il pulsante 'Verifica Versione Chrome' per controllare la versione installata",
-                "2. Usa il pulsante 'Scarica ChromeDriver' per ottenere la versione corretta per il tuo Chrome"
+                "1. Run 'playwright install' to install the browser binaries",
+                "2. Make sure Chrome is installed on your system",
+                "3. Try specifying a direct path to the browser executable"
             ]
-        elif "Chrome failed to start" in error_message:
-            error_info = "Chrome non è riuscito ad avviarsi correttamente"
+        elif "Timeout" in error_message:
+            error_info = "Playwright operation timed out"
             solutions = [
-                "1. Chiudi tutte le istanze di Chrome in esecuzione",
-                "2. Controlla se il tuo antivirus blocca Chrome quando viene avviato da Selenium",
-                "3. Prova ad eseguire l'applicazione con privilegi di amministratore",
-                "4. Disattiva temporaneamente l'opzione USE_CHROME_PROFILE nel file .env"
+                "1. Check your internet connection",
+                "2. Increase the timeout values in the code",
+                "3. Try running in non-headless mode to debug visually"
             ]
         
-        self.root.after(0, lambda: messagebox.showerror("Errore di connessione", 
-            f"Impossibile connettersi a Selenium: {error_message}\n\n" +
-            f"Problema: {error_info}\n\n" +
-            "Possibili soluzioni:\n" + "\n".join(solutions)
+        self.root.after(0, lambda: messagebox.showerror("Connection Error", 
+            f"Unable to connect to Playwright: {error_message}\n\n" +
+            f"Problem: {error_info}\n\n" +
+            "Possible solutions:\n" + "\n".join(solutions)
         ))
     
     def update_status(self, connected, message):
-        """Aggiorna l'indicatore di stato nella GUI"""
+        """Update the status indicator in the GUI"""
         if connected:
             self.status_indicator.config(text="✅", foreground="green")
         else:
@@ -429,23 +426,23 @@ class SunoAutomationGUI:
         self.status_label.config(text=message)
     
     def log_message(self, message):
-        """Aggiunge un messaggio all'area di log"""
+        """Add a message to the log area"""
         self.log_text.config(state='normal')
         self.log_text.insert(tk.END, f"{message}\n")
         self.log_text.see(tk.END)
         self.log_text.config(state='disabled')
-        logger.info(message)
+        logging.info(message)
     
     def generate_song(self):
-        """Gestisce la generazione di una canzone"""
+        """Handle song generation"""
         if not self.automation or not self.automation.connected:
-            messagebox.showerror("Errore", "Selenium non è connesso. Controlla i log.")
+            messagebox.showerror("Error", "Playwright is not connected. Check the logs.")
             return
         
         # Get input values from the GUI
         prompt = self.prompt_text.get("1.0", tk.END).strip()
         if not prompt:
-            messagebox.showerror("Errore", "Inserisci una descrizione per la canzone")
+            messagebox.showerror("Error", "Please enter a description for the song")
             return
         
         style = self.style_entry.get().strip()
@@ -460,14 +457,14 @@ class SunoAutomationGUI:
         self.log_message(f"Input - Instrumental: {instrumental}")
         self.log_message(f"Input - Download: {download}")
         
-        # Disabilita i controlli durante la generazione
+        # Disable controls during generation
         self.toggle_controls(False)
         self.progress_var.set(0)
         
-        # Avvia la barra di progresso
+        # Start the progress bar
         self.animate_progress()
         
-        # Avvia la generazione in un thread separato
+        # Start generation in a separate thread
         gen_thread = threading.Thread(
             target=self._generate_song_thread, 
             args=(prompt, style, title, instrumental, download)
@@ -476,13 +473,13 @@ class SunoAutomationGUI:
         gen_thread.start()
     
     def _generate_song_thread(self, prompt, style, title, instrumental, download):
-        """Thread separato per la generazione della canzone"""
+        """Separate thread for song generation"""
         try:
-            self.log_message(f"Generazione canzone: {title if title else prompt[:30]}...")
-            self.log_message(f"Stile: {style if style else 'Non specificato'}")
-            self.log_message(f"Strumentale: {'Sì' if instrumental else 'No'}")
+            self.log_message(f"Generating song: {title if title else prompt[:30]}...")
+            self.log_message(f"Style: {style if style else 'Not specified'}")
+            self.log_message(f"Instrumental: {'Yes' if instrumental else 'No'}")
             
-            # Genera la canzone - passing the explicit parameters
+            # Generate the song - passing the explicit parameters
             result = self.automation.generate_song(
                 prompt=prompt,
                 style=style if style else None,
@@ -490,31 +487,31 @@ class SunoAutomationGUI:
                 instrumental=instrumental
             )
             
-            self.log_message(f"Risultato generazione: {result}")
+            self.log_message(f"Generation result: {result}")
             
             if result["success"]:
-                self.log_message(f"Canzone generata con successo!")
+                self.log_message(f"Song generated successfully!")
                 self.log_message(f"URL: {result['url']}")
                 
-                # Scarica se richiesto
+                # Download if requested
                 if download:
-                    self.log_message("Scaricamento canzone...")
+                    self.log_message("Downloading song...")
                     download_result = self.automation.download_song(result["url"])
                     
                     if download_result["success"]:
                         result["file_path"] = download_result["file_path"]
-                        self.log_message(f"Canzone scaricata in: {download_result['file_path']}")
+                        self.log_message(f"Song downloaded to: {download_result['file_path']}")
                     else:
-                        self.log_message(f"Errore durante il download: {download_result.get('error', 'Errore sconosciuto')}")
+                        self.log_message(f"Error during download: {download_result.get('error', 'Unknown error')}")
                 
-                # Aggiungi alla cronologia
+                # Add to history
                 self.root.after(0, self.add_to_history, result)
             else:
-                self.log_message(f"Errore durante la generazione: {result.get('error', 'Errore sconosciuto')}")
+                self.log_message(f"Error during generation: {result.get('error', 'Unknown error')}")
         except Exception as e:
-            self.log_message(f"Errore: {str(e)}")
+            self.log_message(f"Error: {str(e)}")
         finally:
-            # Riattiva i controlli
+            # Re-enable controls
             self.root.after(0, self.toggle_controls, True)
             self.root.after(0, self.stop_progress)
     

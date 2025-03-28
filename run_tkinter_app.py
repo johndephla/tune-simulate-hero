@@ -33,7 +33,7 @@ def show_splash_screen():
     # Add loading message
     loading_label = tk.Label(
         splash, 
-        text="Loading Suno Automation...\nPlease wait while we initialize Selenium.",
+        text="Loading Suno Automation...\nPlease wait while we initialize Playwright.",
         font=("Arial", 12),
         bg="#2e2e2e",
         fg="white"

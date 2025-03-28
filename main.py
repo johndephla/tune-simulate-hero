@@ -6,7 +6,7 @@ import threading
 import time
 import uvicorn
 from api_server import app
-from browser_automation import SunoAutomation
+from playwright_automation import SunoAutomation
 from config import get_config
 
 # Configure logging
@@ -31,7 +31,7 @@ def start_api_server():
         print(f"Error starting API server: {str(e)}")
 
 if __name__ == "__main__":
-    logger.info("Starting Suno.ai Automation")
+    logger.info("Starting Suno.ai Automation with Playwright")
     
     # Load configuration
     config = get_config()
@@ -92,11 +92,11 @@ if __name__ == "__main__":
     
         # Check if automation initialized correctly
         if not automation.connected:
-            logger.warning("Selenium automation connected but in a warning state. Check for errors.")
-            print("Warning: Selenium connected but may have initialization issues.")
+            logger.warning("Playwright automation connected but in a warning state. Check for errors.")
+            print("Warning: Playwright connected but may have initialization issues.")
             print(f"Error details: {automation.connection_error}")
         else:
-            logger.info("Selenium automation initialized successfully")
+            logger.info("Playwright automation initialized successfully")
     
         # Store automation instance in app state for API access
         app.state.automation = automation

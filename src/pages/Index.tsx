@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,9 +11,13 @@ import { Loader2, MusicIcon, DownloadIcon, LinkIcon, SettingsIcon, HelpCircleIco
 import SongHistory from "@/components/SongHistory";
 import { useForm } from "react-hook-form";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import ConnectionStatus from "@/components/ConnectionStatus";
 
 interface GenerateFormData {
   prompt: string;
+  style: string;
+  title: string;
+  instrumental: boolean;
   download: boolean;
 }
 
@@ -22,6 +25,8 @@ interface SongResult {
   success: boolean;
   url: string;
   prompt: string;
+  style?: string;
+  title?: string;
   file_path?: string;
   download_error?: string;
 }
@@ -36,6 +41,9 @@ const Index = () => {
   const form = useForm<GenerateFormData>({
     defaultValues: {
       prompt: "",
+      style: "",
+      title: "",
+      instrumental: true,
       download: true
     }
   });
@@ -50,7 +58,7 @@ const Index = () => {
       }
       return response.json();
     },
-    refetchInterval: 30000 // Check status every 30 seconds
+    refetchInterval: 5000 // Check status every 5 seconds
   });
 
   const onSubmit = async (data: GenerateFormData) => {
@@ -70,6 +78,9 @@ const Index = () => {
         },
         body: JSON.stringify({
           prompt: data.prompt,
+          style: data.style || undefined,
+          title: data.title || undefined,
+          instrumental: data.instrumental,
           download: data.download
         }),
       });
@@ -96,7 +107,12 @@ const Index = () => {
     <div className="container mx-auto px-4 py-8">
       <header className="mb-8 text-center">
         <h1 className="text-4xl font-bold mb-2">Suno AI Automation</h1>
-        <p className="text-gray-600">Generate AI music using Suno.ai with automated browser interaction</p>
+        <p className="text-gray-600 mb-4">Generate AI music using Suno.ai with automated browser interaction</p>
+        
+        {/* Connection Status Indicator - Prominent at the top */}
+        <div className="flex justify-center mb-6">
+          <ConnectionStatus />
+        </div>
         
         <div className="flex justify-center gap-2 mt-3">
           <Button 
@@ -117,16 +133,6 @@ const Index = () => {
             Settings
           </Button>
         </div>
-        
-        {/* Status indicator */}
-        <div className="mt-4 flex items-center justify-center gap-2">
-          <div className={`h-3 w-3 rounded-full ${statusQuery.isLoading ? 'bg-yellow-500' : statusQuery.isError ? 'bg-red-500' : 'bg-green-500'}`}></div>
-          <span className="text-sm">
-            {statusQuery.isLoading ? 'Checking server status...' : 
-             statusQuery.isError ? 'Server offline' : 
-             `Server online${statusQuery.data?.logged_in ? ', logged in' : ', not logged in'}`}
-          </span>
-        </div>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -140,7 +146,7 @@ const Index = () => {
                 name="prompt"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Song Prompt</FormLabel>
+                    <FormLabel>Song Prompt (Lyrics)</FormLabel>
                     <FormControl>
                       <Textarea 
                         placeholder="Enter a description for your song (e.g. 'A happy techno song about robots')" 
@@ -160,29 +166,94 @@ const Index = () => {
               
               <FormField
                 control={form.control}
-                name="download"
+                name="style"
                 render={({ field }) => (
-                  <FormItem className="flex items-center gap-2">
+                  <FormItem>
+                    <FormLabel>Style of Music</FormLabel>
                     <FormControl>
-                      <input 
-                        type="checkbox" 
-                        checked={field.value}
-                        onChange={field.onChange}
+                      <Textarea 
+                        placeholder="Enter style of music (e.g. 'Electronic, dance, techno')" 
+                        className="min-h-[60px]" 
                         disabled={isGenerating}
-                        id="download-checkbox"
-                        className="h-4 w-4"
+                        maxLength={200}
+                        showCount={true}
+                        {...field}
                       />
                     </FormControl>
-                    <FormLabel htmlFor="download-checkbox" className="cursor-pointer m-0">
-                      Download the song automatically
-                    </FormLabel>
+                    <FormDescription>
+                      Specify the genre or musical style for your song
+                    </FormDescription>
                   </FormItem>
                 )}
               />
               
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Song Title</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Enter a title for your song" 
+                        disabled={isGenerating}
+                        maxLength={80}
+                        {...field}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              
+              <div className="flex flex-col sm:flex-row sm:justify-between gap-4">
+                <FormField
+                  control={form.control}
+                  name="instrumental"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center gap-2">
+                      <FormControl>
+                        <input 
+                          type="checkbox" 
+                          checked={field.value}
+                          onChange={field.onChange}
+                          disabled={isGenerating}
+                          id="instrumental-checkbox"
+                          className="h-4 w-4"
+                        />
+                      </FormControl>
+                      <FormLabel htmlFor="instrumental-checkbox" className="cursor-pointer m-0">
+                        Instrumental mode (no vocals)
+                      </FormLabel>
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="download"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center gap-2">
+                      <FormControl>
+                        <input 
+                          type="checkbox" 
+                          checked={field.value}
+                          onChange={field.onChange}
+                          disabled={isGenerating}
+                          id="download-checkbox"
+                          className="h-4 w-4"
+                        />
+                      </FormControl>
+                      <FormLabel htmlFor="download-checkbox" className="cursor-pointer m-0">
+                        Download song automatically
+                      </FormLabel>
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
               <Button 
                 type="submit" 
-                disabled={isGenerating || statusQuery.isError} 
+                disabled={isGenerating || statusQuery.isError || (statusQuery.data && !statusQuery.data.connected)} 
                 className="w-full"
               >
                 {isGenerating ? (

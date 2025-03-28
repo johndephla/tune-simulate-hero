@@ -1,4 +1,3 @@
-
 import time
 import random
 import logging
@@ -28,7 +27,17 @@ class SunoAutomation:
         self.headless = headless
         self.use_chrome_profile = use_chrome_profile
         self.chrome_user_data_dir = chrome_user_data_dir
-        self.driver = self._setup_driver()
+        self.driver = None
+        self.connected = False
+        self.connection_error = None
+        
+        try:
+            self.driver = self._setup_driver()
+            self.connected = True
+        except Exception as e:
+            logger.error(f"Failed to initialize browser: {str(e)}")
+            self.connection_error = str(e)
+            self.connected = False
         
     def _setup_driver(self):
         """Set up and configure the Chrome WebDriver"""
@@ -52,6 +61,27 @@ class SunoAutomation:
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=chrome_options)
         return driver
+    
+    def is_connected(self):
+        """Check if browser is connected and working"""
+        if not self.driver:
+            return False
+        
+        try:
+            # Just access a property to check if driver is still responsive
+            current_url = self.driver.current_url
+            return True
+        except:
+            self.connected = False
+            return False
+    
+    def get_status(self):
+        """Get current status of the browser automation"""
+        return {
+            "connected": self.connected and self.is_connected(),
+            "logged_in": self.logged_in,
+            "error": self.connection_error
+        }
     
     def _human_type(self, element, text):
         """Type text like a human with random delays"""
@@ -92,14 +122,18 @@ class SunoAutomation:
     
     def login(self):
         """Login to Suno.ai"""
+        if not self.connected or not self.driver:
+            logger.error("Browser not connected, can't login")
+            return False
+            
         if self.logged_in:
             logger.info("Already logged in")
             return True
         
         logger.info("Navigating to Suno.ai")
-        self.driver.get("https://suno.ai")
-        
         try:
+            self.driver.get("https://suno.ai")
+            
             # If using Chrome profile, check if already logged in
             if self.use_chrome_profile:
                 try:
@@ -137,6 +171,7 @@ class SunoAutomation:
                         return True
                     except Exception as e:
                         logger.error(f"Google login failed: {str(e)}")
+                        self.connection_error = f"Google login failed: {str(e)}"
                         return False
             
             # Traditional login path (email/password)
@@ -184,10 +219,16 @@ class SunoAutomation:
             
         except Exception as e:
             logger.error(f"Login failed: {str(e)}")
+            self.connection_error = f"Login failed: {str(e)}"
+            self.logged_in = False
             return False
     
     def set_instrumental_mode(self, instrumental=True):
         """Set the instrumental mode toggle"""
+        if not self.connected or not self.driver:
+            logger.error("Browser not connected, can't set instrumental mode")
+            return False
+            
         logger.info(f"Setting instrumental mode to: {instrumental}")
         try:
             # Find the instrumental toggle by its label and nearby toggle element
@@ -220,6 +261,10 @@ class SunoAutomation:
     
     def enter_music_style(self, style):
         """Enter the style of music"""
+        if not self.connected or not self.driver:
+            logger.error("Browser not connected, can't enter music style")
+            return False
+            
         logger.info(f"Setting music style to: {style}")
         try:
             # Find the style of music textarea
@@ -239,6 +284,10 @@ class SunoAutomation:
     
     def enter_title(self, title):
         """Enter the song title"""
+        if not self.connected or not self.driver:
+            logger.error("Browser not connected, can't enter title")
+            return False
+            
         logger.info(f"Setting song title to: {title}")
         try:
             # Find the title textarea
@@ -258,6 +307,10 @@ class SunoAutomation:
             
     def generate_song(self, prompt, style=None, title=None, instrumental=True):
         """Generate a song with the given parameters"""
+        if not self.connected or not self.driver:
+            logger.error("Browser not connected, can't generate song")
+            return {"success": False, "error": "Browser not connected"}
+            
         logger.info(f"Generating song with prompt: {prompt}, style: {style}, title: {title}, instrumental: {instrumental}")
         
         if not self.logged_in:
@@ -389,5 +442,11 @@ class SunoAutomation:
     def close(self):
         """Close the browser and clean up"""
         logger.info("Closing browser")
-        if hasattr(self, 'driver'):
-            self.driver.quit()
+        if self.connected and hasattr(self, 'driver'):
+            try:
+                self.driver.quit()
+            except:
+                pass
+            
+        self.connected = False
+        self.logged_in = False

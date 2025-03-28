@@ -30,9 +30,17 @@ class GenerateRequest(BaseModel):
 async def get_status():
     """Check if the server is running and the bot is logged in"""
     if not hasattr(app.state, "automation"):
-        return {"status": "running", "logged_in": False}
+        return {"status": "running", "logged_in": False, "connected": False, "error": "Automation not initialized"}
     
-    return {"status": "running", "logged_in": app.state.automation.logged_in}
+    # Get detailed status from automation
+    automation_status = app.state.automation.get_status()
+    
+    return {
+        "status": "running", 
+        "logged_in": automation_status["logged_in"],
+        "connected": automation_status["connected"],
+        "error": automation_status["error"]
+    }
 
 @app.post("/generate")
 async def generate_song(request: GenerateRequest):

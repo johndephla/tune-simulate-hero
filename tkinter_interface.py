@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 class SunoAutomationGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Suno.ai Automation")
+        self.root.title("Suno.com Automation")
         self.root.geometry("800x600")
         self.root.minsize(800, 600)
         
@@ -69,10 +69,10 @@ class SunoAutomationGUI:
         header_frame = ttk.Frame(main_frame)
         header_frame.pack(fill=tk.X, pady=(0, 10))
         
-        title_label = ttk.Label(header_frame, text="Suno.ai Automation", style='Header.TLabel')
+        title_label = ttk.Label(header_frame, text="Suno.com Automation", style='Header.TLabel')
         title_label.pack(pady=5)
         
-        subtitle_label = ttk.Label(header_frame, text="Genera automaticamente canzoni con Suno.ai tramite Selenium")
+        subtitle_label = ttk.Label(header_frame, text="Genera automaticamente canzoni con Suno.com tramite Selenium")
         subtitle_label.pack(pady=2)
         
         # Indicatore di stato connessione
@@ -100,7 +100,7 @@ class SunoAutomationGUI:
         prompt_frame = ttk.Frame(left_frame)
         prompt_frame.pack(fill=tk.X, pady=5)
         
-        prompt_label = ttk.Label(prompt_frame, text="Lyrics:")
+        prompt_label = ttk.Label(prompt_frame, text="Describe the song you want:")
         prompt_label.pack(anchor=tk.W)
         
         self.prompt_text = scrolledtext.ScrolledText(prompt_frame, height=6)
@@ -111,7 +111,7 @@ class SunoAutomationGUI:
         style_frame = ttk.Frame(left_frame)
         style_frame.pack(fill=tk.X, pady=5)
         
-        style_label = ttk.Label(style_frame, text="Stile musicale:")
+        style_label = ttk.Label(style_frame, text="Stile musicale (opzionale):")
         style_label.pack(anchor=tk.W)
         
         self.style_entry = ttk.Entry(style_frame)
@@ -134,12 +134,16 @@ class SunoAutomationGUI:
         options_frame.pack(fill=tk.X, pady=5)
         
         self.instrumental_var = tk.BooleanVar(value=True)
-        instrumental_check = ttk.Checkbutton(options_frame, text="Strumentale", variable=self.instrumental_var)
+        instrumental_check = ttk.Checkbutton(options_frame, text="Strumentale (senza voce)", variable=self.instrumental_var)
         instrumental_check.pack(anchor=tk.W)
         
         self.download_var = tk.BooleanVar(value=True)
         download_check = ttk.Checkbutton(options_frame, text="Scarica canzone al termine", variable=self.download_var)
         download_check.pack(anchor=tk.W)
+        
+        # Pulsante debug Suno.com
+        open_suno_button = ttk.Button(left_frame, text="Apri Suno.com nel browser", command=self.open_suno_website)
+        open_suno_button.pack(pady=2)
         
         # Pulsante di generazione
         generate_button = ttk.Button(left_frame, text="Genera Canzone", command=self.generate_song)
@@ -196,6 +200,11 @@ class SunoAutomationGUI:
             command=self.open_log_file
         )
         open_log_button.pack(fill=tk.X, pady=2)
+    
+    def open_suno_website(self):
+        """Apre Suno.com nel browser predefinito"""
+        webbrowser.open("https://suno.com/create?wid=default")
+        self.log_message("Suno.com aperto nel browser predefinito")
     
     def initialize_automation(self):
         """Inizializza il modulo di automazione di Selenium in un thread separato"""
@@ -436,7 +445,7 @@ class SunoAutomationGUI:
         # Get input values from the GUI
         prompt = self.prompt_text.get("1.0", tk.END).strip()
         if not prompt:
-            messagebox.showerror("Errore", "Inserisci il testo per la canzone (lyrics)")
+            messagebox.showerror("Errore", "Inserisci una descrizione per la canzone")
             return
         
         style = self.style_entry.get().strip()

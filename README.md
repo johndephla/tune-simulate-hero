@@ -1,7 +1,7 @@
 
-# Suno.ai Automation
+# Suno.com Automation
 
-Un'applicazione per automatizzare la generazione di canzoni tramite Suno.ai usando Selenium.
+Un'applicazione per automatizzare la generazione di canzoni tramite Suno.com usando Selenium.
 
 ## Requisiti
 
@@ -45,10 +45,25 @@ python run_tkinter_app.py
 ```
 
 L'interfaccia ti permette di:
-- Generare canzoni con Suno.ai
+- Generare canzoni con Suno.com
 - Vedere lo stato della connessione a Selenium
 - Visualizzare una cronologia delle canzoni generate
 - Aprire le canzoni nel browser o riprodurre i file scaricati
+
+## Note sull'Automazione di Suno.com
+
+L'applicazione si collega a Suno.com (https://suno.com/create?wid=default) e automatizza:
+
+1. L'accesso tramite il profilo Chrome esistente
+2. L'inserimento della descrizione della canzone ("prompt")
+3. L'impostazione di stile e titolo (se forniti)
+4. L'attivazione/disattivazione della modalità strumentale
+5. La generazione della canzone
+6. Il download del file audio generato
+
+Se riscontri problemi, verifica che:
+- Stai utilizzando un profilo Chrome già autenticato su Suno.com
+- L'interfaccia di Suno.com non è cambiata (in tal caso potrebbe essere necessario aggiornare l'automazione)
 
 ## Risoluzione dei Problemi comuni
 
@@ -81,6 +96,6 @@ Se ricevi l'errore "Failed to initialize Chrome driver" oppure "%1 is not a vali
 
 ## Note Importanti
 
-- È necessario avere un account Suno.ai
-- L'automazione funziona meglio utilizzando un profilo Chrome esistente già loggato su Suno.ai
+- È necessario avere un account Suno.com
+- L'automazione funziona meglio utilizzando un profilo Chrome esistente già loggato su Suno.com
 - La prima volta che esegui l'applicazione, potrebbe essere necessario completare manualmente il login

@@ -8,7 +8,7 @@ import tempfile
 import time
 from typing import Dict, Any, Optional, List
 
-from playwright.async_api import async_playwright, Page, Browser, BrowserContext, ElementHandle
+from playwright.sync_api import sync_playwright, Page, Browser, BrowserContext, ElementHandle
 from datetime import datetime
 
 # Configure logging
@@ -31,27 +31,20 @@ class SunoAutomation:
         self.connected = False
         self.connection_error = None
         
-        # Initialize in an async context
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # If we're already in an async context, create a new loop
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        
         try:
-            # Connect to browser
-            loop.run_until_complete(self._setup_browser())
+            # Connect to browser using sync API instead of async
+            self._setup_browser()
             self.connected = True
         except Exception as e:
             logger.error(f"Failed to initialize browser: {str(e)}")
             self.connection_error = str(e)
             self.connected = False
     
-    async def _setup_browser(self):
-        """Set up and configure the Playwright browser"""
+    def _setup_browser(self):
+        """Set up and configure the Playwright browser using sync API"""
         try:
-            # Start Playwright
-            self.playwright = await async_playwright().start()
+            # Start Playwright with sync API
+            self.playwright = sync_playwright().start()
             
             # Browser launch options
             browser_args = []
@@ -65,7 +58,7 @@ class SunoAutomation:
                 browser_kwargs["user_data_dir"] = self.chrome_user_data_dir
             
             # Launch browser - using chromium for better compatibility
-            self.browser = await self.playwright.chromium.launch(**browser_kwargs)
+            self.browser = self.playwright.chromium.launch(**browser_kwargs)
             
             # Create a new browser context
             context_options = {
@@ -78,14 +71,10 @@ class SunoAutomation:
             download_dir = tempfile.mkdtemp()
             context_options["accept_downloads"] = True
             
-            self.context = await self.browser.new_context(**context_options)
-            
-            # Enable request interception (useful for debugging)
-            if os.environ.get("DEBUG", "False").lower() == "true":
-                await self.context.route("**/*", self._log_request)
+            self.context = self.browser.new_context(**context_options)
             
             # Create a new page
-            self.page = await self.context.new_page()
+            self.page = self.context.new_page()
             
             # Set default timeout to 30 seconds (more generous than Selenium default)
             self.page.set_default_timeout(30000)
@@ -94,38 +83,38 @@ class SunoAutomation:
         except Exception as e:
             logger.error(f"Browser setup failed: {str(e)}")
             # Clean up resources if initialization fails
-            await self._cleanup()
+            self._cleanup()
             raise e
     
-    async def _log_request(self, route, request):
+    def _log_request(self, route, request):
         """Log request details for debugging purposes"""
         logger.debug(f"Request: {request.method} {request.url}")
-        await route.continue_()
+        route.continue_()
     
-    async def _cleanup(self):
+    def _cleanup(self):
         """Close browser and clean up resources"""
         try:
             if self.context:
-                await self.context.close()
+                self.context.close()
             if self.browser:
-                await self.browser.close()
+                self.browser.close()
             if self.playwright:
-                await self.playwright.stop()
+                self.playwright.stop()
         except Exception as e:
             logger.error(f"Error during cleanup: {str(e)}")
     
-    async def _random_wait(self, min_seconds=0.5, max_seconds=2.0):
+    def _random_wait(self, min_seconds=0.5, max_seconds=2.0):
         """Wait for a random amount of time to simulate human behavior"""
         delay = random.uniform(min_seconds, max_seconds)
-        await asyncio.sleep(delay)
+        time.sleep(delay)
     
-    async def _human_type(self, element, text):
+    def _human_type(self, element, text):
         """Type text like a human with random delays"""
         if not text:
             return
             
         for char in text:
-            await element.type(char, delay=random.uniform(50, 150))
+            element.type(char, delay=random.uniform(50, 150))
             # Random pause between characters (50-150ms)
     
     def is_connected(self):
@@ -150,24 +139,18 @@ class SunoAutomation:
             logger.info("Already logged in")
             return True
         
-        # Run in async context
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-        return loop.run_until_complete(self._login_async())
+        return self._login_sync()
     
-    async def _login_async(self):
-        """Async implementation of login"""
+    def _login_sync(self):
+        """Synchronous implementation of login"""
         logger.info("Navigating to Suno.com")
         try:
             # Navigate to Suno.com
-            await self.page.goto("https://suno.com/create?wid=default", wait_until="domcontentloaded")
+            self.page.goto("https://suno.com/create?wid=default", wait_until="domcontentloaded")
             
             # Check if already logged in by looking for the prompt textarea
             try:
-                textarea = await self.page.wait_for_selector('textarea[placeholder="Enter style of music"]', timeout=5000)
+                textarea = self.page.wait_for_selector('textarea[placeholder="Enter style of music"]', timeout=5000)
                 if textarea:
                     logger.info("Already logged in via Chrome profile")
                     self.logged_in = True
@@ -179,23 +162,23 @@ class SunoAutomation:
             if self.use_chrome_profile:
                 try:
                     # Look for login/sign-in button
-                    login_button = await self.page.query_selector('button:has-text("Log in"), button:has-text("Sign in")')
+                    login_button = self.page.query_selector('button:has-text("Log in"), button:has-text("Sign in")')
                     
                     if login_button:
                         logger.info("Clicking Log in button")
-                        await login_button.click()
-                        await self._random_wait(1, 2)
+                        login_button.click()
+                        self._random_wait(1, 2)
                     
                     # Look for Google login button
-                    google_login = await self.page.wait_for_selector('button:has-text("Google"), button:has-text("Continue with Google")', timeout=10000)
+                    google_login = self.page.wait_for_selector('button:has-text("Google"), button:has-text("Continue with Google")', timeout=10000)
                     if google_login:
                         logger.info("Clicking Google login button")
-                        await google_login.click()
+                        google_login.click()
                         
                         # Since we're using Chrome profile, Google might auto-login
                         # Give it time to process the Google authentication
                         logger.info("Waiting for Google authentication to complete...")
-                        await self._random_wait(5, 10)
+                        self._random_wait(5, 10)
                 except Exception as e:
                     logger.error(f"Google login failed: {str(e)}")
             
@@ -203,55 +186,55 @@ class SunoAutomation:
             elif self.email and self.password:
                 try:
                     # Click the login button
-                    login_button = await self.page.query_selector('button:has-text("Log in"), button:has-text("Sign in")')
+                    login_button = self.page.query_selector('button:has-text("Log in"), button:has-text("Sign in")')
                     
                     if login_button:
                         logger.info("Clicking Log in button")
-                        await login_button.click()
-                        await self._random_wait(1, 2)
+                        login_button.click()
+                        self._random_wait(1, 2)
                     
                     # Try to find the email login option
-                    email_option = await self.page.query_selector('button:has-text("Email")')
+                    email_option = self.page.query_selector('button:has-text("Email")')
                     if email_option:
                         logger.info("Clicking Email login option")
-                        await email_option.click()
-                        await self._random_wait(1, 2)
+                        email_option.click()
+                        self._random_wait(1, 2)
                     
                     # Wait for email field and enter email
-                    email_field = await self.page.wait_for_selector('input[type="email"], input[name="email"]', timeout=10000)
+                    email_field = self.page.wait_for_selector('input[type="email"], input[name="email"]', timeout=10000)
                     if email_field:
                         logger.info("Entering email")
-                        await self._human_type(email_field, self.email)
+                        self._human_type(email_field, self.email)
                         
                         # Find continue button and click it
-                        continue_button = await self.page.query_selector('button:has-text("Continue")')
+                        continue_button = self.page.query_selector('button:has-text("Continue")')
                         if continue_button:
                             logger.info("Clicking Continue button")
-                            await continue_button.click()
-                            await self._random_wait(1, 2)
+                            continue_button.click()
+                            self._random_wait(1, 2)
                     
                     # Wait for password field and enter password
-                    password_field = await self.page.wait_for_selector('input[type="password"], input[name="password"]', timeout=10000)
+                    password_field = self.page.wait_for_selector('input[type="password"], input[name="password"]', timeout=10000)
                     if password_field:
                         logger.info("Entering password")
-                        await self._human_type(password_field, self.password)
+                        self._human_type(password_field, self.password)
                         
                         # Click submit/login button
-                        submit_button = await self.page.query_selector('button:has-text("Log in"), button:has-text("Sign in")')
+                        submit_button = self.page.query_selector('button:has-text("Log in"), button:has-text("Sign in")')
                         if submit_button:
                             logger.info("Clicking final login button")
-                            await submit_button.click()
-                            await self._random_wait(3, 5)
+                            submit_button.click()
+                            self._random_wait(3, 5)
                 except Exception as e:
                     logger.error(f"Email/password login steps failed: {str(e)}")
             else:
                 # Give user time to complete login if needed
                 logger.info("Waiting for user to complete login manually...")
-                await self._random_wait(10, 15)
+                self._random_wait(10, 15)
             
             # Final check - wait for the presence of textarea to confirm login
             try:
-                await self.page.wait_for_selector('textarea', timeout=20000)
+                self.page.wait_for_selector('textarea', timeout=20000)
                 logger.info("Successfully logged in")
                 self.logged_in = True
                 return True
@@ -277,39 +260,33 @@ class SunoAutomation:
             if not self.login():
                 return {"success": False, "error": "Login failed"}
         
-        # Run in async context
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-        return loop.run_until_complete(self._generate_song_async(prompt, style, title, instrumental))
+        return self._generate_song_sync(prompt, style, title, instrumental)
     
-    async def _generate_song_async(self, prompt, style=None, title=None, instrumental=True):
-        """Async implementation of song generation"""
+    def _generate_song_sync(self, prompt, style=None, title=None, instrumental=True):
+        """Synchronous implementation of song generation"""
         try:
             # Navigate to create page if not already there
             if "create" not in self.page.url:
-                await self.page.goto("https://suno.com/create?wid=default", wait_until="domcontentloaded")
-                await self._random_wait(2, 3)
+                self.page.goto("https://suno.com/create?wid=default", wait_until="domcontentloaded")
+                self._random_wait(2, 3)
                 logger.info("Navigated to the create page")
             
             # Take a screenshot for debugging
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
             screenshot_path = os.path.join(os.path.expanduser("~"), f"suno_debug_create_{timestamp}.png")
-            await self.page.screenshot(path=screenshot_path)
+            self.page.screenshot(path=screenshot_path)
             logger.info(f"Create page screenshot saved to {screenshot_path}")
             
             # Set the style (if provided)
             if style:
                 try:
                     # Look for style textarea using the selector provided
-                    style_textarea = await self.page.wait_for_selector('textarea[placeholder="Enter style of music"]', timeout=5000)
+                    style_textarea = self.page.wait_for_selector('textarea[placeholder="Enter style of music"]', timeout=5000)
                     if style_textarea:
                         logger.info(f"Found style textarea, entering: {style}")
-                        await style_textarea.click()
-                        await style_textarea.fill("")  # Clear existing text
-                        await self._human_type(style_textarea, style)
+                        style_textarea.click()
+                        style_textarea.fill("")  # Clear existing text
+                        self._human_type(style_textarea, style)
                 except Exception as e:
                     logger.warning(f"Could not set style: {str(e)}")
             
@@ -317,26 +294,26 @@ class SunoAutomation:
             if title:
                 try:
                     # Look for title textarea using the selector provided
-                    title_textarea = await self.page.wait_for_selector('textarea[placeholder="Enter a title"]', timeout=5000)
+                    title_textarea = self.page.wait_for_selector('textarea[placeholder="Enter a title"]', timeout=5000)
                     if title_textarea:
                         logger.info(f"Found title textarea, entering: {title}")
-                        await title_textarea.click()
-                        await title_textarea.fill("")  # Clear existing text
-                        await self._human_type(title_textarea, title)
+                        title_textarea.click()
+                        title_textarea.fill("")  # Clear existing text
+                        self._human_type(title_textarea, title)
                 except Exception as e:
                     logger.warning(f"Could not set title: {str(e)}")
             
             # Set instrumental mode
             try:
                 # Find the instrumental toggle
-                toggle_container = await self.page.wait_for_selector('div[aria-label="Instrumental"]', timeout=5000)
+                toggle_container = self.page.wait_for_selector('div[aria-label="Instrumental"]', timeout=5000)
                 if toggle_container:
                     # Check if it's already in the correct state
-                    toggle_span = await toggle_container.query_selector("span")
+                    toggle_span = toggle_container.query_selector("span")
                     is_active = False
                     
                     if toggle_span:
-                        class_attr = await toggle_span.get_attribute("class")
+                        class_attr = toggle_span.get_attribute("class")
                         is_active = class_attr and "translate-x-4" in class_attr
                     
                     logger.info(f"Instrumental toggle current state: {'active' if is_active else 'inactive'}")
@@ -344,8 +321,8 @@ class SunoAutomation:
                     # Click only if we need to change the state
                     if is_active != instrumental:
                         logger.info(f"Clicking instrumental toggle to change from {is_active} to {instrumental}")
-                        await toggle_container.click()
-                        await self._random_wait(1, 2)
+                        toggle_container.click()
+                        self._random_wait(1, 2)
                     else:
                         logger.info(f"Instrumental toggle already in desired state: {instrumental}")
             except Exception as e:
@@ -354,12 +331,12 @@ class SunoAutomation:
             # Find and enter the main prompt
             try:
                 # Focus on the main textarea (using the sibling relationship with the Create button)
-                main_textarea = await self.page.wait_for_selector('textarea', timeout=5000)
+                main_textarea = self.page.wait_for_selector('textarea', timeout=5000)
                 if main_textarea:
                     logger.info("Found main prompt textarea")
-                    await main_textarea.click()
-                    await main_textarea.fill("")  # Clear existing text
-                    await self._human_type(main_textarea, prompt)
+                    main_textarea.click()
+                    main_textarea.fill("")  # Clear existing text
+                    self._human_type(main_textarea, prompt)
                     logger.info("Entered prompt text")
                 else:
                     logger.error("Could not find main prompt textarea")
@@ -369,7 +346,7 @@ class SunoAutomation:
                 return {"success": False, "error": f"Failed to enter prompt: {str(e)}"}
             
             # Take screenshot before clicking Create button
-            await self.page.screenshot(path=os.path.join(os.path.expanduser("~"), "suno_debug_before_click.png"))
+            self.page.screenshot(path=os.path.join(os.path.expanduser("~"), "suno_debug_before_click.png"))
             
             # Find and click the create button
             try:
@@ -377,26 +354,26 @@ class SunoAutomation:
                 create_button = None
                 
                 # Try to find by class name and text
-                button_with_text = await self.page.query_selector('.buttonAnimate >> text=Create')
+                button_with_text = self.page.query_selector('.buttonAnimate >> text=Create')
                 if button_with_text:
                     create_button = button_with_text
                 
                 # If not found, try by role
                 if not create_button:
-                    create_button = await self.page.query_selector('button:has-text("Create")')
+                    create_button = self.page.query_selector('button:has-text("Create")')
                 
                 if not create_button:
                     logger.error("Could not find the Create button")
                     return {"success": False, "error": "Could not find the Create button"}
                 
                 # Check if the button is disabled
-                is_disabled = await create_button.get_attribute("disabled")
+                is_disabled = create_button.get_attribute("disabled")
                 if is_disabled:
                     logger.warning("Create button is disabled. This could be due to input errors or account limitations.")
                     return {"success": False, "error": "Create button is disabled. You may need to check inputs or account limitations."}
                 
                 logger.info("Clicking Create button")
-                await create_button.click()
+                create_button.click()
                 
                 # Wait for generation to start and complete
                 logger.info("Waiting for song generation to begin...")
@@ -405,7 +382,7 @@ class SunoAutomation:
                 generation_started = False
                 for indicator in ["text=Creating", "text=Generating", ".loading", ".spinner", "text=Please wait"]:
                     try:
-                        await self.page.wait_for_selector(indicator, timeout=10000, state="visible")
+                        self.page.wait_for_selector(indicator, timeout=10000, state="visible")
                         generation_started = True
                         logger.info(f"Song generation started (detected indicator: {indicator})")
                         break
@@ -428,7 +405,7 @@ class SunoAutomation:
                 generation_completed = False
                 for indicator in completion_indicators:
                     try:
-                        await self.page.wait_for_selector(indicator, timeout=300000)  # 5 minutes timeout
+                        self.page.wait_for_selector(indicator, timeout=300000)  # 5 minutes timeout
                         generation_completed = True
                         logger.info(f"Song generation completed (detected indicator: {indicator})")
                         break
@@ -440,7 +417,7 @@ class SunoAutomation:
                     return {"success": False, "error": "Song generation timed out"}
                 
                 # Take a final screenshot
-                await self.page.screenshot(path=os.path.join(os.path.expanduser("~"), "suno_debug_complete.png"))
+                self.page.screenshot(path=os.path.join(os.path.expanduser("~"), "suno_debug_complete.png"))
                 
                 # Get the song URL
                 song_url = self.page.url
@@ -466,23 +443,17 @@ class SunoAutomation:
         """Download the generated song"""
         logger.info("Attempting to download song")
         
-        # Run in async context
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-        return loop.run_until_complete(self._download_song_async(song_url))
+        return self._download_song_sync(song_url)
     
-    async def _download_song_async(self, song_url=None):
-        """Async implementation of song download"""
+    def _download_song_sync(self, song_url=None):
+        """Synchronous implementation of song download"""
         try:
             if song_url:
-                await self.page.goto(song_url, wait_until="domcontentloaded")
-                await self._random_wait(2, 3)
+                self.page.goto(song_url, wait_until="domcontentloaded")
+                self._random_wait(2, 3)
             
             # Take a screenshot to debug download process
-            await self.page.screenshot(path=os.path.join(os.path.expanduser("~"), "suno_debug_download.png"))
+            self.page.screenshot(path=os.path.join(os.path.expanduser("~"), "suno_debug_download.png"))
             
             # Set up download location
             download_path = os.path.join(os.path.expanduser("~"), "Downloads")
@@ -499,7 +470,7 @@ class SunoAutomation:
             download_element = None
             for selector in download_selectors:
                 try:
-                    element = await self.page.wait_for_selector(selector, timeout=5000)
+                    element = self.page.wait_for_selector(selector, timeout=5000)
                     if element:
                         download_element = element
                         break
@@ -513,18 +484,18 @@ class SunoAutomation:
             logger.info(f"Found download element, attempting to click")
             
             # Start waiting for download
-            async with self.page.expect_download() as download_info:
-                await download_element.click()
-                download = await download_info.value
+            with self.page.expect_download() as download_info:
+                download_element.click()
+                download = download_info.value
                 
                 # Wait for download to complete
-                path = await download.path()
+                path = download.path()
                 
                 # Save to downloads folder
                 suggested_filename = download.suggested_filename
                 save_path = os.path.join(download_path, suggested_filename)
                 
-                await download.save_as(save_path)
+                download.save_as(save_path)
                 logger.info(f"File downloaded to: {save_path}")
                 
                 return {"success": True, "file_path": save_path}
@@ -536,15 +507,6 @@ class SunoAutomation:
     def close(self):
         """Close the browser and clean up"""
         logger.info("Closing browser")
-        
-        # Run in async context
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-        loop.run_until_complete(self._cleanup())
-        
+        self._cleanup()
         self.connected = False
         self.logged_in = False
-

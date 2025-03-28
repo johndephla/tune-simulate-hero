@@ -33,6 +33,16 @@ def main():
         print(f"Error output: {e.stderr}")
         sys.exit(1)
     
+    # Verifica se il pacchetto async_playwright è sostituito da sync_playwright
+    print("\nVerifying Playwright installation...")
+    try:
+        from playwright.sync_api import sync_playwright
+        print("✅ Playwright sync API is available.")
+    except ImportError:
+        print("❌ Playwright sync API is not available.")
+        print("This might be due to a version mismatch. Updating Playwright...")
+        subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "playwright"], check=True)
+    
     print("\nPlaywright setup completed successfully!")
     print("\nYou can now run the application with:")
     if platform.system() == "Windows":

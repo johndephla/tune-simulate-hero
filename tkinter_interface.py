@@ -1,4 +1,3 @@
-
 import tkinter as tk
 from tkinter import ttk, scrolledtext, filedialog, messagebox
 import threading
@@ -434,6 +433,7 @@ class SunoAutomationGUI:
             messagebox.showerror("Errore", "Selenium non è connesso. Controlla i log.")
             return
         
+        # Get input values from the GUI
         prompt = self.prompt_text.get("1.0", tk.END).strip()
         if not prompt:
             messagebox.showerror("Errore", "Inserisci il testo per la canzone (lyrics)")
@@ -443,6 +443,13 @@ class SunoAutomationGUI:
         title = self.title_entry.get().strip()
         instrumental = self.instrumental_var.get()
         download = self.download_var.get()
+        
+        # Debug logs to make sure we're getting the correct values
+        self.log_message(f"Input - Prompt: '{prompt}'")
+        self.log_message(f"Input - Style: '{style}'")
+        self.log_message(f"Input - Title: '{title}'")
+        self.log_message(f"Input - Instrumental: {instrumental}")
+        self.log_message(f"Input - Download: {download}")
         
         # Disabilita i controlli durante la generazione
         self.toggle_controls(False)
@@ -466,13 +473,15 @@ class SunoAutomationGUI:
             self.log_message(f"Stile: {style if style else 'Non specificato'}")
             self.log_message(f"Strumentale: {'Sì' if instrumental else 'No'}")
             
-            # Genera la canzone
+            # Genera la canzone - passing the explicit parameters
             result = self.automation.generate_song(
                 prompt=prompt,
                 style=style if style else None,
                 title=title if title else None,
                 instrumental=instrumental
             )
+            
+            self.log_message(f"Risultato generazione: {result}")
             
             if result["success"]:
                 self.log_message(f"Canzone generata con successo!")

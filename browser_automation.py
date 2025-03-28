@@ -1,4 +1,3 @@
-
 import time
 import random
 import logging
@@ -373,18 +372,31 @@ class SunoAutomation:
             # Get the parent div that contains both the label and the toggle
             parent_div = instrumental_label.find_element(By.XPATH, "./..")
             
-            # Get the toggle element
-            toggle = parent_div.find_element(By.XPATH, "./div[contains(@class, 'inline-flex')]")
+            # Get the toggle element 
+            toggle = parent_div.find_element(By.XPATH, ".//button[contains(@role, 'switch')] | .//div[contains(@class, 'switch')] | .//div[contains(@class, 'toggle')]")
             
-            # Check current state by inspecting classes or attributes
+            # Check current state
             toggle_classes = toggle.get_attribute("class")
-            current_state = "bg-primary" in toggle_classes
+            toggle_aria = toggle.get_attribute("aria-checked")
+            
+            if toggle_aria:
+                # Use aria-checked if available
+                current_state = toggle_aria.lower() == "true"
+            else:
+                # Fallback to class checking
+                current_state = "bg-primary" in toggle_classes or "active" in toggle_classes
+            
+            logger.info(f"Current toggle state detected as: {current_state}")
             
             # Only click if the current state doesn't match desired state
             if current_state != instrumental:
                 logger.info(f"Clicking instrumental toggle (current: {current_state}, desired: {instrumental})")
                 self._human_move_and_click(toggle)
                 time.sleep(1)  # Wait for toggle animation
+                
+                # Verify the change occurred
+                toggle_classes_after = toggle.get_attribute("class")
+                logger.info(f"Toggle classes after click: {toggle_classes_after}")
             else:
                 logger.info(f"Instrumental mode already set to {instrumental}")
                 
@@ -401,17 +413,47 @@ class SunoAutomation:
             
         logger.info(f"Setting music style to: {style}")
         try:
-            # Find the style of music textarea
-            style_input = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, "//span[contains(text(), 'Style of Music')]/../../following-sibling::div//textarea"))
-            )
+            # Find the style of music textarea with more flexible XPath
+            style_labels = self.driver.find_elements(By.XPATH, "//span[contains(text(), 'Style') and (contains(text(), 'Music') or contains(text(), 'musical'))]")
             
-            # Clear any existing text and enter the style
-            style_input.clear()
-            self._human_type(style_input, style)
+            if not style_labels:
+                logger.warning("Could not find 'Style of Music' label, trying alternative approaches")
+                # Try alternative XPath that might match the style input
+                style_labels = self.driver.find_elements(By.XPATH, "//label[contains(text(), 'Style')]")
             
-            logger.info("Music style entered successfully")
-            return True
+            if style_labels:
+                # Get the closest textarea or input
+                for label in style_labels:
+                    try:
+                        # Try to navigate up to a common parent then down to the textarea
+                        parent = label
+                        for _ in range(3):  # Go up a few levels
+                            if parent.tag_name != "body":
+                                parent = parent.find_element(By.XPATH, "..")
+                        
+                        # Look for textarea or input within this container
+                        style_input = parent.find_element(By.XPATH, ".//textarea | .//input[not(@type='checkbox')]")
+                        
+                        # Clear any existing text and enter the style
+                        style_input.clear()
+                        self._human_type(style_input, style)
+                        
+                        logger.info("Music style entered successfully")
+                        return True
+                    except Exception as e:
+                        logger.warning(f"Attempt to find style input failed: {e}")
+            
+            # Fallback: Try to find any textarea that might be the style input
+            textareas = self.driver.find_elements(By.XPATH, "//textarea")
+            if len(textareas) >= 2:  # Assuming first is lyrics, second might be style
+                style_input = textareas[1]
+                style_input.clear()
+                self._human_type(style_input, style)
+                logger.info("Music style entered using fallback method")
+                return True
+                
+            logger.error("Could not find style input field")
+            return False
         except Exception as e:
             logger.error(f"Failed to enter music style: {str(e)}")
             return False
@@ -424,17 +466,42 @@ class SunoAutomation:
             
         logger.info(f"Setting song title to: {title}")
         try:
-            # Find the title textarea
-            title_input = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, "//span[contains(text(), 'Title')]/../../following-sibling::div//textarea"))
-            )
+            # Find the title input with more flexible XPath
+            title_labels = self.driver.find_elements(By.XPATH, "//span[contains(text(), 'Title')] | //label[contains(text(), 'Title')]")
             
-            # Clear any existing text and enter the title
-            title_input.clear()
-            self._human_type(title_input, title)
+            if title_labels:
+                # Get the closest textarea or input
+                for label in title_labels:
+                    try:
+                        # Try to navigate up to a common parent then down to the input
+                        parent = label
+                        for _ in range(3):  # Go up a few levels
+                            if parent.tag_name != "body":
+                                parent = parent.find_element(By.XPATH, "..")
+                        
+                        # Look for textarea or input within this container
+                        title_input = parent.find_element(By.XPATH, ".//textarea | .//input[not(@type='checkbox')]")
+                        
+                        # Clear any existing text and enter the title
+                        title_input.clear()
+                        self._human_type(title_input, title)
+                        
+                        logger.info("Title entered successfully")
+                        return True
+                    except Exception as e:
+                        logger.warning(f"Attempt to find title input failed: {e}")
             
-            logger.info("Title entered successfully")
-            return True
+            # Fallback: Try to find any textarea that might be the title input
+            textareas = self.driver.find_elements(By.XPATH, "//textarea")
+            if len(textareas) >= 3:  # Assuming first is lyrics, second is style, third might be title
+                title_input = textareas[2]
+                title_input.clear()
+                self._human_type(title_input, title)
+                logger.info("Title entered using fallback method")
+                return True
+                
+            logger.error("Could not find title input field")
+            return False
         except Exception as e:
             logger.error(f"Failed to enter title: {str(e)}")
             return False
@@ -455,7 +522,13 @@ class SunoAutomation:
             # Navigate to create page if not already there
             if "create" not in self.driver.current_url:
                 self.driver.get("https://suno.ai/create")
-                time.sleep(2)  # Wait for page to load
+                time.sleep(3)  # Wait for page to load
+                logger.info("Navigated to the create page")
+            
+            # Take a screenshot for debugging
+            screenshot_path = os.path.join(os.path.expanduser("~"), "suno_debug.png")
+            self.driver.save_screenshot(screenshot_path)
+            logger.info(f"Saved debug screenshot to {screenshot_path}")
             
             # Set instrumental mode if specified
             if instrumental is not None:
@@ -470,19 +543,64 @@ class SunoAutomation:
                 self.enter_title(title)
             
             # Find and click on the prompt input field (lyrics field)
-            prompt_field = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//span[contains(text(), 'Lyrics')]/../../following-sibling::div//textarea"))
-            )
-            self._human_move_and_click(prompt_field)
+            # Try multiple selector approaches to find the lyrics input
+            try:
+                # Try to find by label text first
+                lyrics_label = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.XPATH, "//span[contains(text(), 'Lyrics')] | //label[contains(text(), 'Lyrics')]"))
+                )
+                
+                # Navigate up to parent container, then find the textarea
+                parent = lyrics_label
+                for _ in range(3):  # Go up a few levels
+                    if parent.tag_name != "body":
+                        parent = parent.find_element(By.XPATH, "..")
+                
+                prompt_field = parent.find_element(By.XPATH, ".//textarea")
+                logger.info("Found lyrics textarea by label")
+            except Exception as e:
+                logger.warning(f"Failed to find lyrics field by label: {e}")
+                # Fallback: Try to find the first textarea on the page
+                prompt_field = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.XPATH, "//textarea"))
+                )
+                logger.info("Found lyrics textarea using fallback method")
             
-            # Clear any existing text and enter new prompt
+            # Click on the textarea and enter text
+            self._human_move_and_click(prompt_field)
             prompt_field.clear()
             self._human_type(prompt_field, prompt)
+            logger.info("Entered lyrics text")
             
             # Click the generate/create button
-            create_button = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//button[contains(@class, 'create-button') or contains(@class, 'buttonAnimate')]"))
-            )
+            logger.info("Looking for generate/create button")
+            create_button = None
+            
+            # Try multiple selector approaches to find the create button
+            button_selectors = [
+                "//button[contains(@class, 'create-button')]",
+                "//button[contains(text(), 'Create')]",
+                "//button[contains(text(), 'Generate')]",
+                "//button[contains(@class, 'primary')]",
+                "//button[contains(@class, 'buttonAnimate')]"
+            ]
+            
+            for selector in button_selectors:
+                try:
+                    buttons = self.driver.find_elements(By.XPATH, selector)
+                    for button in buttons:
+                        if button.is_displayed() and button.is_enabled():
+                            create_button = button
+                            break
+                    if create_button:
+                        break
+                except:
+                    continue
+            
+            if not create_button:
+                logger.error("Could not find the create/generate button")
+                return {"success": False, "error": "Could not find the create button"}
+            
             logger.info("Clicking create button")
             self._human_move_and_click(create_button)
             
@@ -491,13 +609,32 @@ class SunoAutomation:
             
             # Wait for the generating indicator to disappear
             try:
-                WebDriverWait(self.driver, 300).until_not(
-                    EC.presence_of_element_located((By.XPATH, "//div[contains(text(), 'Generating') or contains(text(), 'Processing')]"))
-                )
+                # Try multiple selector approaches for the generating indicator
+                generating_selectors = [
+                    "//div[contains(text(), 'Generating')]",
+                    "//div[contains(text(), 'Processing')]",
+                    "//div[contains(@class, 'loading')]",
+                    "//div[contains(@class, 'spinner')]"
+                ]
+                
+                for selector in generating_selectors:
+                    try:
+                        WebDriverWait(self.driver, 5).until(
+                            EC.presence_of_element_located((By.XPATH, selector))
+                        )
+                        logger.info(f"Found generating indicator with selector: {selector}")
+                        # If we found an indicator, wait for it to disappear
+                        WebDriverWait(self.driver, 300).until_not(
+                            EC.presence_of_element_located((By.XPATH, selector))
+                        )
+                        break
+                    except TimeoutException:
+                        continue
             except TimeoutException:
                 logger.warning("Generation might still be in progress, but continuing...")
             
             # Wait for share or download buttons to appear
+            logger.info("Waiting for share or download buttons to appear...")
             WebDriverWait(self.driver, 30).until(
                 EC.presence_of_element_located((By.XPATH, "//button[contains(text(), 'Share') or contains(text(), 'Download')]"))
             )
@@ -530,7 +667,13 @@ class SunoAutomation:
                 # Fallback: use current URL
                 song_url = self.driver.current_url
             
-            return {"success": True, "url": song_url, "prompt": prompt, "style": style, "title": title}
+            return {
+                "success": True, 
+                "url": song_url, 
+                "prompt": prompt, 
+                "style": style, 
+                "title": title
+            }
             
         except Exception as e:
             logger.error(f"Song generation failed: {str(e)}")

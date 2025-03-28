@@ -22,9 +22,10 @@ logger = logging.getLogger(__name__)
 
 def start_api_server():
     """Start the FastAPI server in a separate thread"""
-    logger.info("Starting API server at http://127.0.0.1:8000")
+    logger.info("Starting API server at http://0.0.0.0:8000")
     try:
-        uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")
+        # Use 0.0.0.0 instead of 127.0.0.1 to allow connections from other machines
+        uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
     except Exception as e:
         logger.error(f"Failed to start API server: {str(e)}")
         print(f"Error starting API server: {str(e)}")
@@ -104,8 +105,8 @@ if __name__ == "__main__":
         server_thread = threading.Thread(target=start_api_server, daemon=True)
         server_thread.start()
         
-        logger.info(f"API server started at http://127.0.0.1:8000")
-        print(f"API server started at http://127.0.0.1:8000")
+        logger.info(f"API server started at http://0.0.0.0:8000")
+        print(f"API server started at http://0.0.0.0:8000")
         print("React frontend can now connect to the API")
         print("Press Ctrl+C to exit")
         

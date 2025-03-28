@@ -23,8 +23,12 @@ const ConnectionStatus = () => {
       
       try {
         console.log("Checking Selenium connection status...");
+        // Use window.location.hostname to get the current host, but use port 8000
+        const apiUrl = `http://${window.location.hostname}:8000/status`;
+        console.log("Connecting to API at:", apiUrl);
+        
         // Try to connect to Selenium by making a request to check its status
-        const response = await fetch('http://localhost:8000/status', {
+        const response = await fetch(apiUrl, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -48,7 +52,7 @@ const ConnectionStatus = () => {
       } catch (error) {
         console.error("Error checking Selenium connection:", error);
         setIsConnected(false);
-        setErrorMessage("Failed to connect to backend server. Make sure 'python main.py' is running.");
+        setErrorMessage("Failed to connect to backend server. Make sure 'python main.py' is running and accessible on port 8000.");
       } finally {
         setIsChecking(false);
       }

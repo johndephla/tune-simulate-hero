@@ -62,7 +62,6 @@ class SunoAutomationGUI:
     
     def create_main_layout(self):
         """Creare il layout principale dell'interfaccia"""
-        # ... keep existing code (main layout creation)
         # Frame principale
         main_frame = ttk.Frame(self.root, padding=10)
         main_frame.pack(fill=tk.BOTH, expand=True)
@@ -107,6 +106,7 @@ class SunoAutomationGUI:
         
         self.prompt_text = scrolledtext.ScrolledText(prompt_frame, height=6)
         self.prompt_text.pack(fill=tk.X, pady=2)
+        self.prompt_text.insert(tk.END, "Una canzone su un astronauta che esplora lo spazio")
         
         # Stile musicale
         style_frame = ttk.Frame(left_frame)
@@ -117,6 +117,7 @@ class SunoAutomationGUI:
         
         self.style_entry = ttk.Entry(style_frame)
         self.style_entry.pack(fill=tk.X, pady=2)
+        self.style_entry.insert(0, "Rock spaziale, melodico")
         
         # Titolo canzone
         title_frame = ttk.Frame(left_frame)
@@ -127,6 +128,7 @@ class SunoAutomationGUI:
         
         self.title_entry = ttk.Entry(title_frame)
         self.title_entry.pack(fill=tk.X, pady=2)
+        self.title_entry.insert(0, "Viaggiando tra le stelle")
         
         # Opzioni aggiuntive
         options_frame = ttk.Frame(left_frame)
@@ -256,7 +258,7 @@ class SunoAutomationGUI:
                 else:
                     self.log_message("Login non riuscito o già effettuato")
             else:
-                error_message = self.automation.connection_error if self.automation.connection_error else "Errore sconosciuto"
+                error_message = self.automation.connection_error if hasattr(self.automation, 'connection_error') and self.automation.connection_error else "Errore sconosciuto"
                 self.root.after(0, self.update_status, False, f"Errore: {error_message}")
                 self.log_message(f"Errore di connessione Selenium: {error_message}")
                 self.show_error_message(error_message)
@@ -425,8 +427,6 @@ class SunoAutomationGUI:
         self.log_text.see(tk.END)
         self.log_text.config(state='disabled')
         logger.info(message)
-    
-    # ... keep existing code (generate_song, _generate_song_thread, animate_progress, stop_progress, toggle_controls, add_to_history, open_url, open_file)
     
     def generate_song(self):
         """Gestisce la generazione di una canzone"""
@@ -600,8 +600,3 @@ class SunoAutomationGUI:
                 subprocess.call(['xdg-open', file_path])
         else:
             messagebox.showerror("Errore", f"Il file non esiste più: {file_path}")
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = SunoAutomationGUI(root)
-    root.mainloop()

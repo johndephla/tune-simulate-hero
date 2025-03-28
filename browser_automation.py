@@ -196,8 +196,6 @@ class SunoAutomation:
         logger.error(combined_error)
         raise Exception(combined_error)
     
-    # ... keep existing code (is_connected, get_status, ecc.)
-    
     def is_connected(self):
         """Check if browser is connected and working"""
         if not self.driver:
@@ -255,8 +253,6 @@ class SunoAutomation:
         pyautogui.moveTo(x, y, duration=0.2)
         time.sleep(random.uniform(0.1, 0.3))
         pyautogui.click()
-    
-    # ... keep existing code (login, set_instrumental_mode, enter_music_style, enter_title, generate_song, download_song, close)
     
     def login(self):
         """Login to Suno.ai"""

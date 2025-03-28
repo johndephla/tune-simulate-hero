@@ -36,7 +36,7 @@ HEADLESS=False  # Usa True per eseguire Chrome in background
 
 ## Utilizzo
 
-### Interfaccia Grafica Tkinter (Raccomandata)
+### Interfaccia Grafica Tkinter
 
 Esegui l'applicazione desktop con:
 
@@ -44,21 +44,11 @@ Esegui l'applicazione desktop con:
 python run_tkinter_app.py
 ```
 
-L'interfaccia grafica ti permette di:
+L'interfaccia ti permette di:
 - Generare canzoni con Suno.ai
 - Vedere lo stato della connessione a Selenium
 - Visualizzare una cronologia delle canzoni generate
 - Aprire le canzoni nel browser o riprodurre i file scaricati
-
-### Interfaccia Web (Alternativa)
-
-Avvia il server API:
-
-```
-python main.py
-```
-
-Quindi accedi all'interfaccia web all'indirizzo http://localhost:5173
 
 ## Risoluzione dei Problemi comuni
 

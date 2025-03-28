@@ -1,60 +1,71 @@
 
-import logging
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import logging
 
+app = FastAPI()
+
+# Configure CORS for frontend access
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-app = FastAPI(title="Suno.ai Automation API")
 
 class GenerateRequest(BaseModel):
     prompt: str
-    download: bool = False
-
-@app.get("/")
-async def root():
-    return {"status": "ok", "message": "Suno.ai Automation API is running"}
-
-@app.post("/generate")
-async def generate_song(request: GenerateRequest, background_tasks: BackgroundTasks):
-    """
-    Generate a song on Suno.ai with the given prompt
-    """
-    logger.info(f"Received generation request with prompt: {request.prompt}")
-    
-    # Get automation instance from app state
-    automation = app.state.automation
-    
-    if not automation:
-        raise HTTPException(status_code=500, detail="Automation not initialized")
-    
-    # Generate song
-    result = automation.generate_song(request.prompt)
-    
-    if not result.get("success"):
-        raise HTTPException(status_code=500, detail=result.get("error", "Failed to generate song"))
-    
-    # Download the song if requested
-    if request.download:
-        download_result = automation.download_song(result.get("url"))
-        if download_result.get("success"):
-            result["file_path"] = download_result.get("file_path")
-        else:
-            logger.warning(f"Download failed: {download_result.get('error')}")
-            result["download_error"] = download_result.get("error")
-    
-    return result
+    style: str = None
+    title: str = None
+    instrumental: bool = True
+    download: bool = True
 
 @app.get("/status")
-async def status():
-    """
-    Get the current status of the automation
-    """
-    automation = app.state.automation
-    if not automation:
-        return {"status": "not_initialized"}
+async def get_status():
+    """Check if the server is running and the bot is logged in"""
+    if not hasattr(app.state, "automation"):
+        return {"status": "running", "logged_in": False}
     
-    return {
-        "status": "ready",
-        "logged_in": automation.logged_in
-    }
+    return {"status": "running", "logged_in": app.state.automation.logged_in}
+
+@app.post("/generate")
+async def generate_song(request: GenerateRequest):
+    """Generate a song with the provided prompt"""
+    if not hasattr(app.state, "automation"):
+        raise HTTPException(status_code=500, detail="Automation not initialized")
+    
+    try:
+        # Generate the song
+        result = app.state.automation.generate_song(
+            prompt=request.prompt,
+            style=request.style,
+            title=request.title,
+            instrumental=request.instrumental
+        )
+        
+        if not result["success"]:
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to generate song"))
+        
+        # Download if requested
+        if request.download:
+            download_result = app.state.automation.download_song(result["url"])
+            if download_result["success"]:
+                result["file_path"] = download_result["file_path"]
+            else:
+                result["download_error"] = download_result.get("error", "Unknown download error")
+        
+        return result
+    except Exception as e:
+        logger.error(f"Error generating song: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/health")
+async def health_check():
+    """Simple health check endpoint"""
+    return {"status": "healthy"}

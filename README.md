@@ -1,69 +1,95 @@
-# Welcome to your Lovable project
 
-## Project info
+# Suno.ai Automation Bot
 
-**URL**: https://lovable.dev/projects/74d1c17a-1709-4b23-9904-45ce8c95605e
+This application automates the process of generating music on Suno.ai by simulating human-like interactions with the website. It provides a FastAPI endpoint to generate songs programmatically.
 
-## How can I edit this code?
+## Features
 
-There are several ways of editing your application.
+- Automated login to Suno.ai
+- Human-like browser interaction (realistic mouse movements and typing)
+- Song generation from text prompts
+- Song download capability
+- RESTful API for integration with other applications
 
-**Use Lovable**
+## Requirements
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/74d1c17a-1709-4b23-9904-45ce8c95605e) and start prompting.
+- Windows 10 or newer
+- Python 3.7+
+- Google Chrome browser
+- Suno.ai account
 
-Changes made via Lovable will be committed automatically to this repo.
+## Installation
 
-**Use your preferred IDE**
+1. Clone or download this repository
+2. Install the required dependencies:
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```bash
+pip install -r requirements.txt
 ```
 
-**Edit a file directly in GitHub**
+3. Create a `.env` file based on the provided `.env.example`:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+cp .env.example .env
+```
 
-**Use GitHub Codespaces**
+4. Edit the `.env` file with your Suno.ai credentials:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```
+EMAIL=your-email@example.com
+PASSWORD=your-password
+```
 
-## What technologies are used for this project?
+## Usage
 
-This project is built with .
+### Running the application
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+```bash
+python main.py
+```
 
-## How can I deploy this project?
+This will start the automation bot and the FastAPI server on http://127.0.0.1:8000
 
-Simply open [Lovable](https://lovable.dev/projects/74d1c17a-1709-4b23-9904-45ce8c95605e) and click on Share -> Publish.
+### Using the API
 
-## I want to use a custom domain - is that possible?
+To generate a song, send a POST request to the `/generate` endpoint:
 
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+```bash
+curl -X POST "http://127.0.0.1:8000/generate" -H "Content-Type: application/json" -d '{"prompt": "happy techno song about robots", "download": true}'
+```
+
+The response will include the URL of the generated song and the file path if download was requested:
+
+```json
+{
+  "success": true,
+  "url": "https://suno.ai/song/abc123",
+  "prompt": "happy techno song about robots",
+  "file_path": "C:\\Users\\YourName\\Downloads\\suno_song_123.mp3"
+}
+```
+
+## API Endpoints
+
+- `GET /` - Check if the API is running
+- `POST /generate` - Generate a new song
+  - Request body:
+    - `prompt` (string, required) - The text prompt for song generation
+    - `download` (boolean, optional) - Whether to download the generated song
+- `GET /status` - Check the current status of the automation
+
+## Notes
+
+- The application simulates human-like behavior to avoid detection as a bot
+- Suno.ai may have usage limits or anti-automation measures that could affect performance
+- This tool should be used responsibly and in accordance with Suno.ai's terms of service
+
+## Troubleshooting
+
+- If the browser fails to start, ensure Chrome is installed and updated
+- If login fails, verify your credentials in the `.env` file
+- Check the `suno_automation.log` file for detailed logs
+
+## License
+
+This project is for educational purposes only. Use responsibly.

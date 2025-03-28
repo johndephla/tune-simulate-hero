@@ -1,0 +1,16 @@
+
+# Web automation
+selenium==4.15.2
+webdriver-manager==4.0.1
+pyautogui==0.9.54
+
+# API server
+fastapi==0.103.1
+uvicorn==0.23.2
+pydantic==2.4.2
+
+# Configuration
+python-dotenv==1.0.0
+
+# Utility
+loguru==0.7.0

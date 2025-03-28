@@ -2,12 +2,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, MusicIcon, DownloadIcon, LinkIcon } from "lucide-react";
+import { Loader2, MusicIcon, DownloadIcon, LinkIcon, SettingsIcon, HelpCircleIcon, InfoIcon } from "lucide-react";
 import SongHistory from "@/components/SongHistory";
 import { useForm } from "react-hook-form";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel } from "@/components/ui/form";
@@ -29,6 +30,8 @@ const Index = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [songResult, setSongResult] = useState<SongResult | null>(null);
   const [history, setHistory] = useState<SongResult[]>([]);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const form = useForm<GenerateFormData>({
     defaultValues: {
@@ -95,6 +98,26 @@ const Index = () => {
         <h1 className="text-4xl font-bold mb-2">Suno AI Automation</h1>
         <p className="text-gray-600">Generate AI music using Suno.ai with automated browser interaction</p>
         
+        <div className="flex justify-center gap-2 mt-3">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setHelpOpen(true)}
+          >
+            <HelpCircleIcon className="h-4 w-4 mr-1" />
+            Help
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setSettingsOpen(true)}
+          >
+            <SettingsIcon className="h-4 w-4 mr-1" />
+            Settings
+          </Button>
+        </div>
+        
         {/* Status indicator */}
         <div className="mt-4 flex items-center justify-center gap-2">
           <div className={`h-3 w-3 rounded-full ${statusQuery.isLoading ? 'bg-yellow-500' : statusQuery.isError ? 'bg-red-500' : 'bg-green-500'}`}></div>
@@ -123,6 +146,8 @@ const Index = () => {
                         placeholder="Enter a description for your song (e.g. 'A happy techno song about robots')" 
                         className="min-h-[100px]" 
                         disabled={isGenerating}
+                        maxLength={500}
+                        showCount={true}
                         {...field}
                       />
                     </FormControl>
@@ -214,6 +239,92 @@ const Index = () => {
           <SongHistory history={history} />
         </Card>
       </div>
+
+      {/* Help Dialog */}
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>How to Use Suno AI Automation</DialogTitle>
+            <DialogDescription>
+              <div className="mt-4 space-y-3">
+                <div>
+                  <h4 className="font-medium">Getting Started</h4>
+                  <p className="text-sm">Ensure the automation server is running in the background. Wait for the status indicator to show "Server online, logged in".</p>
+                </div>
+                
+                <div>
+                  <h4 className="font-medium">Creating Songs</h4>
+                  <p className="text-sm">Enter a descriptive prompt for your song. Be specific about genre, mood, instruments, and themes. Click "Generate Song" and wait for the process to complete.</p>
+                </div>
+                
+                <div>
+                  <h4 className="font-medium">Tips for Better Results</h4>
+                  <ul className="text-sm list-disc pl-5">
+                    <li>Include a music genre (pop, rock, jazz, etc.)</li>
+                    <li>Describe the mood or emotion (happy, melancholic, energetic)</li>
+                    <li>Mention specific instruments if desired</li>
+                    <li>Keep prompts concise but descriptive</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h4 className="font-medium">Troubleshooting</h4>
+                  <ul className="text-sm list-disc pl-5">
+                    <li>If the server shows "offline", restart the Python application</li>
+                    <li>If login fails, check your Chrome profile settings</li>
+                    <li>For other issues, check the log file</li>
+                  </ul>
+                </div>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+
+      {/* Settings Dialog */}
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Settings</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label htmlFor="chrome-path">Chrome Profile Path</Label>
+              <Input 
+                id="chrome-path" 
+                placeholder="C:\Users\YourUsername\AppData\Local\Google\Chrome\User Data"
+                disabled
+                className="text-sm text-muted-foreground"
+              />
+              <p className="text-xs text-muted-foreground">To change this setting, edit the .env file</p>
+            </div>
+            
+            <div className="space-y-1">
+              <Label htmlFor="headless-mode">Headless Mode</Label>
+              <div className="flex items-center gap-2">
+                <input 
+                  type="checkbox"
+                  id="headless-mode"
+                  className="h-4 w-4"
+                  disabled
+                />
+                <span className="text-sm text-muted-foreground">Edit .env file to change</span>
+              </div>
+              <p className="text-xs text-muted-foreground">When enabled, the browser runs in the background</p>
+            </div>
+
+            <div className="bg-blue-50 p-3 rounded-md mt-4">
+              <div className="flex items-start gap-2">
+                <InfoIcon className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm text-blue-700">Settings can only be changed by editing the .env file in the application directory.</p>
+                  <p className="text-xs text-blue-600 mt-1">After changing settings, restart the application.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

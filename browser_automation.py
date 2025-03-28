@@ -1,10 +1,10 @@
-
 import time
 import random
 import logging
 import os
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -102,25 +102,51 @@ class SunoAutomation:
             # If using Chrome profile, check if already logged in
             if self.use_chrome_profile:
                 try:
-                    # Check for elements that indicate we're logged in
-                    WebDriverWait(self.driver, 10).until(
+                    # Check for elements that indicate we're logged in - looking for Create button
+                    WebDriverWait(self.driver, 15).until(
                         EC.presence_of_element_located((By.XPATH, "//button[contains(text(), 'Create') or contains(text(), 'New')]"))
                     )
                     logger.info("Already logged in via Chrome profile")
                     self.logged_in = True
                     return True
                 except TimeoutException:
-                    logger.info("Not logged in yet via Chrome profile, proceeding with login button")
+                    logger.info("Not logged in via Chrome profile, proceeding with Google login")
                     
-            # Wait for login button and click it
-            login_button = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Login') or contains(text(), 'Sign in')]"))
-            )
-            logger.info("Clicking login button")
-            self._human_move_and_click(login_button)
+                    # Find and click the Google login button
+                    try:
+                        # Look for Google login button
+                        google_login = WebDriverWait(self.driver, 10).until(
+                            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Continue with Google') or contains(@class, 'google')]"))
+                        )
+                        logger.info("Clicking Google login button")
+                        self._human_move_and_click(google_login)
+                        
+                        # Since we're using Chrome profile, Google might auto-login
+                        # Give it time to process the Google authentication
+                        logger.info("Waiting for Google authentication to complete...")
+                        time.sleep(10)
+                        
+                        # Check if we're logged in
+                        WebDriverWait(self.driver, 20).until(
+                            EC.presence_of_element_located((By.XPATH, "//button[contains(text(), 'Create') or contains(text(), 'New')]"))
+                        )
+                        
+                        logger.info("Successfully logged in with Google")
+                        self.logged_in = True
+                        return True
+                    except Exception as e:
+                        logger.error(f"Google login failed: {str(e)}")
+                        return False
             
-            # If using traditional login (not Chrome profile)
+            # Traditional login path (email/password)
             if not self.use_chrome_profile and self.email and self.password:
+                # Wait for login button and click it
+                login_button = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Login') or contains(text(), 'Sign in')]"))
+                )
+                logger.info("Clicking login button")
+                self._human_move_and_click(login_button)
+                
                 # Wait for email field and enter email
                 email_field = WebDriverWait(self.driver, 10).until(
                     EC.presence_of_element_located((By.XPATH, "//input[@type='email' or @name='email']"))

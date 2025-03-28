@@ -1,10 +1,10 @@
-
 import tkinter as tk
 from tkinter import ttk, scrolledtext, filedialog, messagebox
 import threading
 import os
 import sys
 import logging
+import platform
 from browser_automation import SunoAutomation
 from config import get_config
 
@@ -29,6 +29,7 @@ class SunoAutomationGUI:
         self.automation = None
         self.song_history = []
         self.config = get_config()
+        self.progress_running = False
         
         # Caricare icone e stili
         self.setup_styles()
@@ -172,9 +173,32 @@ class SunoAutomationGUI:
         self.log_message("Inizializzazione di Selenium...")
         
         try:
+            # Verifica se chromedriver esiste nella directory corrente
+            self.log_message(f"Sistema operativo: {platform.system()}")
+            
             use_chrome_profile = self.config.get("USE_CHROME_PROFILE", True)
             chrome_user_data_dir = self.config.get("CHROME_USER_DATA_DIR")
             headless = self.config.get("HEADLESS", "False").lower() == "true"
+            
+            self.log_message(f"Chrome profile: {use_chrome_profile}")
+            self.log_message(f"Chrome profile dir: {chrome_user_data_dir}")
+            self.log_message(f"Headless mode: {headless}")
+            
+            # Verifica versione di Chrome
+            try:
+                import subprocess
+                if platform.system() == "Windows":
+                    result = subprocess.run(["wmic", "datafile", "where", "name='C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe'", "get", "Version", "/value"], 
+                                      capture_output=True, text=True, check=False)
+                elif platform.system() == "Darwin":  # macOS
+                    result = subprocess.run(["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "--version"], 
+                                      capture_output=True, text=True, check=False)
+                else:  # Linux
+                    result = subprocess.run(["google-chrome", "--version"], 
+                                      capture_output=True, text=True, check=False)
+                self.log_message(f"Versione Chrome: {result.stdout.strip()}")
+            except Exception as e:
+                self.log_message(f"Impossibile determinare la versione di Chrome: {str(e)}")
             
             if use_chrome_profile and chrome_user_data_dir:
                 self.log_message(f"Utilizzo profilo Chrome: {chrome_user_data_dir}")
@@ -209,11 +233,26 @@ class SunoAutomationGUI:
                 else:
                     self.log_message("Login non riuscito o già effettuato")
             else:
-                self.root.after(0, self.update_status, False, f"Errore: {self.automation.connection_error}")
-                self.log_message(f"Errore di connessione: {self.automation.connection_error}")
+                error_message = self.automation.connection_error if self.automation.connection_error else "Errore sconosciuto"
+                self.root.after(0, self.update_status, False, f"Errore: {error_message}")
+                self.log_message(f"Errore di connessione Selenium: {error_message}")
+                self.show_error_message(error_message)
         except Exception as e:
-            self.root.after(0, self.update_status, False, f"Errore: {str(e)}")
-            self.log_message(f"Errore durante l'inizializzazione: {str(e)}")
+            error_message = str(e)
+            self.root.after(0, self.update_status, False, f"Errore: {error_message}")
+            self.log_message(f"Errore durante l'inizializzazione: {error_message}")
+            self.show_error_message(error_message)
+    
+    def show_error_message(self, error_message):
+        """Mostra un messaggio di errore in una finestra di dialogo"""
+        self.root.after(0, lambda: messagebox.showerror("Errore di connessione", 
+            f"Impossibile connettersi a Selenium: {error_message}\n\n" +
+            "Possibili soluzioni:\n" +
+            "1. Assicurati che Chrome sia installato e aggiornato\n" +
+            "2. Verifica che il percorso al profilo Chrome sia corretto nel file .env\n" +
+            "3. Se stai usando un profilo Chrome esistente, chiudi tutte le istanze di Chrome\n" +
+            "4. Prova a eseguire l'applicazione senza il profilo Chrome (modifica USE_CHROME_PROFILE=False nel file .env)"
+        ))
     
     def update_status(self, connected, message):
         """Aggiorna l'indicatore di stato nella GUI"""
@@ -409,4 +448,3 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = SunoAutomationGUI(root)
     root.mainloop()
-

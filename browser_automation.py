@@ -1,14 +1,18 @@
+
 import time
 import random
 import logging
 import os
+import platform
+import tempfile
+import subprocess
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException, WebDriverException
 from webdriver_manager.chrome import ChromeDriverManager
 import pyautogui
 from utils import random_wait, ensure_dir_exists
@@ -45,22 +49,73 @@ class SunoAutomation:
         chrome_options = Options()
         
         if self.headless:
-            chrome_options.add_argument("--headless")
+            logger.info("Running in headless mode")
+            chrome_options.add_argument("--headless=new")
+            chrome_options.add_argument("--disable-gpu")
+            chrome_options.add_argument("--window-size=1920,1080")
+        
+        # Aggiungi argomenti per evitare problemi comuni
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        chrome_options.add_experimental_option("useAutomationExtension", False)
+        
+        # User agent specifico per evitare il rilevamento dell'automazione
+        chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
         
         # Use Chrome profile if specified
         if self.use_chrome_profile and self.chrome_user_data_dir:
+            if not os.path.exists(self.chrome_user_data_dir):
+                logger.warning(f"Chrome profile directory does not exist: {self.chrome_user_data_dir}")
+                logger.info("Creating a new Chrome profile directory")
+                try:
+                    os.makedirs(self.chrome_user_data_dir, exist_ok=True)
+                except Exception as e:
+                    logger.error(f"Failed to create Chrome profile directory: {str(e)}")
+                    raise Exception(f"Failed to create Chrome profile directory: {str(e)}")
+            
             logger.info(f"Using Chrome profile from: {self.chrome_user_data_dir}")
             chrome_options.add_argument(f"user-data-dir={self.chrome_user_data_dir}")
-            chrome_options.add_argument("profile-directory=Default")
+            
+            # Se siamo su Windows, verifichiamo se Chrome è in esecuzione
+            if platform.system() == "Windows":
+                try:
+                    output = subprocess.check_output("tasklist | findstr chrome", shell=True)
+                    logger.warning("Chrome is already running, this may cause issues with user-data-dir")
+                except subprocess.CalledProcessError:
+                    # Chrome non è in esecuzione, va bene
+                    pass
         
         chrome_options.add_argument("--start-maximized")
         chrome_options.add_argument("--disable-notifications")
         chrome_options.add_argument("--disable-infobars")
         chrome_options.add_argument("--disable-extensions")
         
-        service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=chrome_options)
-        return driver
+        try:
+            logger.info("Installing/updating ChromeDriver using webdriver_manager")
+            service = Service(ChromeDriverManager().install())
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+            logger.info("Chrome WebDriver initialized successfully")
+            
+            # Impostazioni anti-detection
+            driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            
+            return driver
+        except Exception as e:
+            logger.error(f"Error initializing Chrome WebDriver: {str(e)}")
+            
+            # Prova un metodo alternativo
+            try:
+                logger.info("Trying alternative WebDriver initialization method")
+                driver = webdriver.Chrome(options=chrome_options)
+                logger.info("Alternative WebDriver initialization successful")
+                return driver
+            except Exception as alt_e:
+                logger.error(f"Alternative method also failed: {str(alt_e)}")
+                raise Exception(f"Failed to initialize Chrome driver: {str(e)}. Alternative method also failed: {str(alt_e)}")
+    
+    # ... keep existing code (is_connected, get_status, ecc.)
     
     def is_connected(self):
         """Check if browser is connected and working"""
@@ -174,6 +229,8 @@ class SunoAutomation:
                         self.connection_error = f"Google login failed: {str(e)}"
                         return False
             
+            # ... keep existing code (login procedure and rest of the login method)
+            
             # Traditional login path (email/password)
             if not self.use_chrome_profile and self.email and self.password:
                 # Wait for login button and click it
@@ -222,6 +279,8 @@ class SunoAutomation:
             self.connection_error = f"Login failed: {str(e)}"
             self.logged_in = False
             return False
+    
+    # ... keep existing code (set_instrumental_mode, enter_music_style, enter_title, generate_song, download_song, close)
     
     def set_instrumental_mode(self, instrumental=True):
         """Set the instrumental mode toggle"""

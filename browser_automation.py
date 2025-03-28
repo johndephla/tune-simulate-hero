@@ -5,13 +5,13 @@ import logging
 import os
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from webdriver_manager.chrome import ChromeDriverManager
 import pyautogui
+from utils import random_wait, ensure_dir_exists
 
 pyautogui.FAILSAFE = True  # Move mouse to upper-left corner to abort
 
@@ -20,11 +20,13 @@ logger = logging.getLogger(__name__)
 class SunoAutomation:
     """Class to automate interactions with Suno.ai"""
     
-    def __init__(self, email, password, headless=False):
+    def __init__(self, email=None, password=None, headless=False, use_chrome_profile=False, chrome_user_data_dir=None):
         self.email = email
         self.password = password
         self.logged_in = False
         self.headless = headless
+        self.use_chrome_profile = use_chrome_profile
+        self.chrome_user_data_dir = chrome_user_data_dir
         self.driver = self._setup_driver()
         
     def _setup_driver(self):
@@ -34,6 +36,12 @@ class SunoAutomation:
         
         if self.headless:
             chrome_options.add_argument("--headless")
+        
+        # Use Chrome profile if specified
+        if self.use_chrome_profile and self.chrome_user_data_dir:
+            logger.info(f"Using Chrome profile from: {self.chrome_user_data_dir}")
+            chrome_options.add_argument(f"user-data-dir={self.chrome_user_data_dir}")
+            chrome_options.add_argument("profile-directory=Default")
         
         chrome_options.add_argument("--start-maximized")
         chrome_options.add_argument("--disable-notifications")
@@ -91,6 +99,19 @@ class SunoAutomation:
         self.driver.get("https://suno.ai")
         
         try:
+            # If using Chrome profile, check if already logged in
+            if self.use_chrome_profile:
+                try:
+                    # Check for elements that indicate we're logged in
+                    WebDriverWait(self.driver, 10).until(
+                        EC.presence_of_element_located((By.XPATH, "//button[contains(text(), 'Create') or contains(text(), 'New')]"))
+                    )
+                    logger.info("Already logged in via Chrome profile")
+                    self.logged_in = True
+                    return True
+                except TimeoutException:
+                    logger.info("Not logged in yet via Chrome profile, proceeding with login button")
+                    
             # Wait for login button and click it
             login_button = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Login') or contains(text(), 'Sign in')]"))
@@ -98,26 +119,32 @@ class SunoAutomation:
             logger.info("Clicking login button")
             self._human_move_and_click(login_button)
             
-            # Wait for email field and enter email
-            email_field = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, "//input[@type='email' or @name='email']"))
-            )
-            logger.info("Entering email")
-            self._human_type(email_field, self.email)
-            
-            # Wait for password field and enter password
-            password_field = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, "//input[@type='password' or @name='password']"))
-            )
-            logger.info("Entering password")
-            self._human_type(password_field, self.password)
-            
-            # Click submit button
-            submit_button = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//button[@type='submit' or contains(text(), 'Sign in') or contains(text(), 'Log in')]"))
-            )
-            logger.info("Submitting login form")
-            self._human_move_and_click(submit_button)
+            # If using traditional login (not Chrome profile)
+            if not self.use_chrome_profile and self.email and self.password:
+                # Wait for email field and enter email
+                email_field = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.XPATH, "//input[@type='email' or @name='email']"))
+                )
+                logger.info("Entering email")
+                self._human_type(email_field, self.email)
+                
+                # Wait for password field and enter password
+                password_field = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.XPATH, "//input[@type='password' or @name='password']"))
+                )
+                logger.info("Entering password")
+                self._human_type(password_field, self.password)
+                
+                # Click submit button
+                submit_button = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable((By.XPATH, "//button[@type='submit' or contains(text(), 'Sign in') or contains(text(), 'Log in')]"))
+                )
+                logger.info("Submitting login form")
+                self._human_move_and_click(submit_button)
+            else:
+                # Give user time to complete Google login if needed
+                logger.info("Waiting for user to complete Google login via Chrome profile...")
+                time.sleep(15)  # Adjust timeout as needed
             
             # Wait for successful login (check for create button or user profile)
             WebDriverWait(self.driver, 20).until(

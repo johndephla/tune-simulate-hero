@@ -31,11 +31,18 @@ if __name__ == "__main__":
     config = get_config()
     
     # Create automation instance
-    automation = SunoAutomation(
-        email=config["EMAIL"],
-        password=config["PASSWORD"],
-        headless=config.get("HEADLESS", "False").lower() == "true"
-    )
+    if config.get("USE_CHROME_PROFILE", False):
+        automation = SunoAutomation(
+            headless=config.get("HEADLESS", "False").lower() == "true",
+            use_chrome_profile=True,
+            chrome_user_data_dir=config.get("CHROME_USER_DATA_DIR")
+        )
+    else:
+        automation = SunoAutomation(
+            email=config.get("EMAIL"),
+            password=config.get("PASSWORD"),
+            headless=config.get("HEADLESS", "False").lower() == "true"
+        )
     
     # Store automation instance in app state for API access
     app.state.automation = automation

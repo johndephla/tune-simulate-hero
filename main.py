@@ -32,17 +32,25 @@ if __name__ == "__main__":
     
     # Create automation instance
     if config.get("USE_CHROME_PROFILE", False):
+        logger.info("Using Chrome profile for authentication")
         automation = SunoAutomation(
             headless=config.get("HEADLESS", "False").lower() == "true",
             use_chrome_profile=True,
             chrome_user_data_dir=config.get("CHROME_USER_DATA_DIR")
         )
-    else:
+    elif config.get("EMAIL") and config.get("PASSWORD"):
+        logger.info("Using email/password for authentication")
         automation = SunoAutomation(
             email=config.get("EMAIL"),
             password=config.get("PASSWORD"),
             headless=config.get("HEADLESS", "False").lower() == "true"
         )
+    else:
+        logger.error("Neither Chrome profile nor email/password authentication information provided")
+        print("Error: Authentication information is missing.")
+        print("Please configure either USE_CHROME_PROFILE=True with CHROME_USER_DATA_DIR")
+        print("or provide EMAIL and PASSWORD in the .env file.")
+        sys.exit(1)
     
     # Store automation instance in app state for API access
     app.state.automation = automation

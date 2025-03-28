@@ -4,18 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader2, Globe, PlayCircle } from "lucide-react";
+import { Loader2, Music, PlayCircle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel } from "@/components/ui/form";
 
 export interface TestFormData {
-  url: string;
-  action: string;
+  prompt: string;
+  style: string;
+  title: string;
+  instrumental: boolean;
 }
 
 export interface SongResult {
   success: boolean;
-  url: string;
+  url?: string;
   prompt: string;
   style?: string;
   title?: string;
@@ -28,78 +30,87 @@ interface TestSeleniumFormProps {
 }
 
 const TestSeleniumForm = ({ onTestComplete }: TestSeleniumFormProps) => {
-  const [isTesting, setIsTesting] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [testResult, setTestResult] = useState<SongResult | null>(null);
 
   const form = useForm<TestFormData>({
     defaultValues: {
-      url: "https://www.google.com",
-      action: "Navigate to the URL and take a screenshot"
+      prompt: "A song about exploring space and discovering new worlds",
+      style: "Epic orchestral soundtrack",
+      title: "Cosmic Journey",
+      instrumental: true
     }
   });
 
   const onSubmit = async (data: TestFormData) => {
-    if (!data.url.trim()) {
-      toast.error("Please enter a URL");
+    if (!data.prompt.trim()) {
+      toast.error("Please enter a prompt for the song");
       return;
     }
 
-    setIsTesting(true);
+    setIsGenerating(true);
     setTestResult(null);
 
     try {
-      // Simulate a Selenium test
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Send the request to the Selenium API
+      const response = await fetch('http://localhost:8000/generate-song', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: data.prompt,
+          style: data.style,
+          title: data.title,
+          instrumental: data.instrumental
+        }),
+      });
       
-      // This is just a simulation - in a real app we would call the Selenium service
-      const isSuccess = Math.random() > 0.3;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate song");
+      }
       
-      const result = {
-        success: isSuccess,
-        url: data.url,
-        prompt: data.action,
-        style: "Selenium Test",
-        title: "Automation Test",
-        file_path: isSuccess ? "/path/to/screenshot.png" : undefined,
-        download_error: isSuccess ? undefined : "Failed to connect to Selenium"
-      };
+      const result = await response.json();
       
       setTestResult(result);
       
       if (result.success) {
-        toast.success("Selenium test completed successfully!");
+        toast.success("Song generated successfully!");
         onTestComplete(result);
       } else {
-        toast.error(`Test failed: ${result.download_error}`);
+        toast.error(`Generation failed: ${result.download_error}`);
       }
     } catch (error) {
-      toast.error("Failed to run Selenium test. Is Selenium running?");
-      console.error(error);
+      console.error("Error:", error);
+      toast.error("Failed to generate song. Is Selenium running?");
     } finally {
-      setIsTesting(false);
+      setIsGenerating(false);
     }
   };
 
   return (
     <>
-      <h2 className="text-2xl font-semibold mb-4">Test Selenium</h2>
+      <h2 className="text-2xl font-semibold mb-4">Generate Song with Suno.ai</h2>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField
             control={form.control}
-            name="url"
+            name="prompt"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>URL to Visit</FormLabel>
+                <FormLabel>Song Lyrics/Prompt</FormLabel>
                 <FormControl>
-                  <Input 
-                    placeholder="https://www.example.com" 
-                    disabled={isTesting}
+                  <Textarea 
+                    placeholder="Enter lyrics or a prompt for your song" 
+                    className="min-h-[100px]" 
+                    disabled={isGenerating}
+                    maxLength={500}
                     {...field}
                   />
                 </FormControl>
                 <FormDescription>
-                  Enter the URL you want Selenium to navigate to
+                  Describe the lyrics or concept for your song
                 </FormDescription>
               </FormItem>
             )}
@@ -107,40 +118,81 @@ const TestSeleniumForm = ({ onTestComplete }: TestSeleniumFormProps) => {
           
           <FormField
             control={form.control}
-            name="action"
+            name="style"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Action to Perform</FormLabel>
+                <FormLabel>Music Style</FormLabel>
                 <FormControl>
-                  <Textarea 
-                    placeholder="Describe what action to perform (e.g., 'Click login button')" 
-                    className="min-h-[100px]" 
-                    disabled={isTesting}
-                    maxLength={500}
+                  <Input 
+                    placeholder="e.g., Rock, Pop, Orchestral" 
+                    disabled={isGenerating}
                     {...field}
                   />
                 </FormControl>
                 <FormDescription>
-                  Describe the action you want Selenium to perform
+                  The genre or style of music
                 </FormDescription>
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={form.control}
+            name="title"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Song Title</FormLabel>
+                <FormControl>
+                  <Input 
+                    placeholder="Enter a title for your song" 
+                    disabled={isGenerating}
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription>
+                  A title for your generated song
+                </FormDescription>
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={form.control}
+            name="instrumental"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base">Instrumental Only</FormLabel>
+                  <FormDescription>
+                    Generate an instrumental version without vocals
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <input
+                    type="checkbox"
+                    checked={field.value}
+                    onChange={(e) => field.onChange(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                </FormControl>
               </FormItem>
             )}
           />
           
           <Button 
             type="submit" 
-            disabled={isTesting} 
+            disabled={isGenerating} 
             className="w-full"
           >
-            {isTesting ? (
+            {isGenerating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Testing Selenium...
+                Generating Song...
               </>
             ) : (
               <>
-                <PlayCircle className="mr-2 h-4 w-4" />
-                Run Selenium Test
+                <Music className="mr-2 h-4 w-4" />
+                Generate Song with Suno.ai
               </>
             )}
           </Button>
@@ -150,10 +202,11 @@ const TestSeleniumForm = ({ onTestComplete }: TestSeleniumFormProps) => {
       {testResult && (
         <div className={`mt-6 p-4 ${testResult.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border rounded-md`}>
           <h3 className={`font-medium ${testResult.success ? 'text-green-800' : 'text-red-800'} mb-2`}>
-            {testResult.success ? 'Test Completed!' : 'Test Failed!'}
+            {testResult.success ? 'Song Generated!' : 'Generation Failed!'}
           </h3>
-          <p className="text-sm mb-3">URL: {testResult.url}</p>
-          <p className="text-sm mb-3">Action: "{testResult.prompt}"</p>
+          <p className="text-sm mb-1"><span className="font-medium">Title:</span> {testResult.title}</p>
+          <p className="text-sm mb-1"><span className="font-medium">Style:</span> {testResult.style}</p>
+          <p className="text-sm mb-3"><span className="font-medium">Prompt:</span> "{testResult.prompt}"</p>
           
           {testResult.success ? (
             <Button 
@@ -161,8 +214,8 @@ const TestSeleniumForm = ({ onTestComplete }: TestSeleniumFormProps) => {
               onClick={() => window.open(testResult.url, '_blank')}
               className="w-full"
             >
-              <Globe className="mr-2 h-4 w-4" />
-              Open URL in Browser
+              <Music className="mr-2 h-4 w-4" />
+              Listen to Your Song
             </Button>
           ) : (
             <p className="text-sm text-red-500 mt-2">Error: {testResult.download_error}</p>

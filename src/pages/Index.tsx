@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { HelpCircleIcon, SettingsIcon } from "lucide-react";
 import SongHistory from "@/components/SongHistory";
 import ConnectionStatus from "@/components/ConnectionStatus";
-import { SongResult } from "@/components/GenerateForm";
+import { SongResult } from "@/components/TestSeleniumForm";
 import HelpDialog from "@/components/HelpDialog";
 import SettingsDialog from "@/components/SettingsDialog";
 import TestSeleniumForm from "@/components/TestSeleniumForm";
@@ -22,8 +22,8 @@ const Index = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <header className="mb-8 text-center">
-        <h1 className="text-4xl font-bold mb-2">Selenium Automation Test</h1>
-        <p className="text-gray-600 mb-4">Test Selenium connectivity and browser automation</p>
+        <h1 className="text-4xl font-bold mb-2">Suno.ai Automation</h1>
+        <p className="text-gray-600 mb-4">Automatically generate songs with Suno.ai through Selenium</p>
         
         {/* Connection Status Indicator - Prominent at the top */}
         <div className="flex justify-center mb-6">
@@ -59,7 +59,7 @@ const Index = () => {
         </Card>
         
         <Card className="p-6 shadow-md">
-          <h2 className="text-2xl font-semibold mb-4">Test History</h2>
+          <h2 className="text-2xl font-semibold mb-4">Generated Songs</h2>
           <SongHistory history={history} />
         </Card>
       </div>

@@ -11,34 +11,35 @@ const HelpDialog = ({ open, onOpenChange }: HelpDialogProps) => {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Selenium Automation Testing</DialogTitle>
+          <DialogTitle>Suno.ai Automation with Selenium</DialogTitle>
           <DialogDescription>
             <div className="mt-4 space-y-3">
               <div>
                 <h4 className="font-medium">Getting Started</h4>
-                <p className="text-sm">This app is designed to test Selenium browser automation. Make sure to have ChromeDriver and Selenium installed.</p>
+                <p className="text-sm">This app uses Selenium to automate the Suno.ai website for song generation. Make sure to have ChromeDriver and Selenium running.</p>
               </div>
               
               <div>
-                <h4 className="font-medium">Testing Selenium</h4>
-                <p className="text-sm">Enter a URL and action to test if Selenium can automate browser tasks. The status indicator shows if Selenium is currently connected.</p>
+                <h4 className="font-medium">How It Works</h4>
+                <p className="text-sm">Enter a prompt, style, and title for your song. The system will use Selenium to login to Suno.ai and generate the song for you automatically.</p>
               </div>
               
               <div>
                 <h4 className="font-medium">Configuration</h4>
                 <ul className="text-sm list-disc pl-5">
-                  <li>Make sure Chrome is installed</li>
-                  <li>Install ChromeDriver that matches your Chrome version</li>
-                  <li>Configure paths in the Settings dialog</li>
+                  <li>Make sure Python and the required packages are installed</li>
+                  <li>Run the included `main.py` script to start the Selenium service</li>
+                  <li>Configure your Suno.ai login credentials in the .env file</li>
+                  <li>The connection status indicator shows if Selenium is currently available</li>
                 </ul>
               </div>
 
               <div>
                 <h4 className="font-medium">Troubleshooting</h4>
                 <ul className="text-sm list-disc pl-5">
-                  <li>If connection fails, check that ChromeDriver is running</li>
-                  <li>Ensure your Chrome version matches ChromeDriver</li>
-                  <li>Check system logs for Selenium errors</li>
+                  <li>If connection fails, make sure the Python service is running</li>
+                  <li>Check the credentials in your .env file are correct</li>
+                  <li>Review the console or logs for any Selenium errors</li>
                 </ul>
               </div>
             </div>

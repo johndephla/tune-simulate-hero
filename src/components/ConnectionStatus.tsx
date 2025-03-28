@@ -11,12 +11,22 @@ const ConnectionStatus = () => {
     const checkConnection = async () => {
       setIsChecking(true);
       try {
-        // This is a placeholder - we're just simulating a connection test
-        // In a real implementation, you would check if Selenium is running
-        const isRunning = Math.random() > 0.5; // Just for demonstration
-        setIsConnected(isRunning);
+        // Try to connect to Selenium by making a request to check its status
+        const response = await fetch('http://localhost:8000/status', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setIsConnected(data.connected);
+        } else {
+          setIsConnected(false);
+        }
       } catch (error) {
-        console.error("Error checking connection:", error);
+        console.error("Error checking Selenium connection:", error);
         setIsConnected(false);
       } finally {
         setIsChecking(false);

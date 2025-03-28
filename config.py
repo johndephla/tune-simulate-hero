@@ -14,17 +14,16 @@ def get_config():
     config = {}
     
     # Check if using Chrome profile
-    use_chrome_profile = os.environ.get("USE_CHROME_PROFILE", "False").lower() == "true"
+    use_chrome_profile = os.environ.get("USE_CHROME_PROFILE", "True").lower() == "true"  # Default to True
     config["USE_CHROME_PROFILE"] = use_chrome_profile
     
     # Add Chrome profile path if using Chrome profile
     if use_chrome_profile:
-        chrome_user_data_dir = os.environ.get("CHROME_USER_DATA_DIR")
-        if not chrome_user_data_dir:
-            logger.warning("USE_CHROME_PROFILE is True but CHROME_USER_DATA_DIR is not set")
-            print("Warning: CHROME_USER_DATA_DIR is required when USE_CHROME_PROFILE=True")
-            print("Please set CHROME_USER_DATA_DIR in your .env file")
+        # Default to standard Chrome profile location for Windows
+        default_path = os.path.join(os.path.expanduser("~"), "AppData", "Local", "Google", "Chrome", "User Data")
+        chrome_user_data_dir = os.environ.get("CHROME_USER_DATA_DIR", default_path)
         config["CHROME_USER_DATA_DIR"] = chrome_user_data_dir
+        logger.info(f"Using Chrome profile from: {chrome_user_data_dir}")
     
     # Add email and password if provided (now optional)
     email = os.environ.get("EMAIL")

@@ -40,7 +40,8 @@ const ConnectionStatus = ({ className }: ConnectionStatusProps) => {
     );
   }
   
-  const { connected, logged_in, error } = statusQuery.data;
+  // Safely extract status data with default values if they're undefined
+  const { connected = false, logged_in = false, error = null } = statusQuery.data || {};
   
   return (
     <div className={`flex items-center gap-2 ${className}`}>
@@ -56,12 +57,12 @@ const ConnectionStatus = ({ className }: ConnectionStatusProps) => {
               ) : !logged_in ? (
                 <>
                   <Wifi className="h-4 w-4 text-yellow-500" />
-                  <Badge variant="warning" className="bg-yellow-500">Connected, Not Logged In</Badge>
+                  <Badge variant="outline" className="bg-yellow-500 text-white border-yellow-500">Connected, Not Logged In</Badge>
                 </>
               ) : (
                 <>
                   <Wifi className="h-4 w-4 text-green-500" />
-                  <Badge variant="success" className="bg-green-500 hover:bg-green-600 text-white">Connected to Suno.ai</Badge>
+                  <Badge variant="outline" className="bg-green-500 hover:bg-green-600 text-white border-green-500">Connected to Suno.ai</Badge>
                 </>
               )}
             </div>

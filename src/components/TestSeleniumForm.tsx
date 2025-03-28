@@ -32,6 +32,7 @@ interface TestSeleniumFormProps {
 const TestSeleniumForm = ({ onTestComplete }: TestSeleniumFormProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [testResult, setTestResult] = useState<SongResult | null>(null);
+  const [simulateRequest, setSimulateRequest] = useState(false);
 
   const form = useForm<TestFormData>({
     defaultValues: {
@@ -52,34 +53,52 @@ const TestSeleniumForm = ({ onTestComplete }: TestSeleniumFormProps) => {
     setTestResult(null);
 
     try {
-      // Send the request to the Selenium API
-      const response = await fetch('http://localhost:8000/generate-song', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      if (simulateRequest) {
+        // Simulate a successful response after a delay
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const simulatedResult: SongResult = {
+          success: true,
+          url: "https://suno.example.com/song/123456",
           prompt: data.prompt,
           style: data.style,
           title: data.title,
-          instrumental: data.instrumental
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to generate song");
-      }
-      
-      const result = await response.json();
-      
-      setTestResult(result);
-      
-      if (result.success) {
-        toast.success("Song generated successfully!");
-        onTestComplete(result);
+          file_path: "/path/to/simulated/song.mp3"
+        };
+        
+        setTestResult(simulatedResult);
+        onTestComplete(simulatedResult);
+        toast.success("Song generation simulated successfully!");
       } else {
-        toast.error(`Generation failed: ${result.download_error}`);
+        // Actual request to Selenium API
+        const response = await fetch('http://localhost:8000/generate-song', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            prompt: data.prompt,
+            style: data.style,
+            title: data.title,
+            instrumental: data.instrumental
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to generate song");
+        }
+        
+        const result = await response.json();
+        
+        setTestResult(result);
+        
+        if (result.success) {
+          toast.success("Song generated successfully!");
+          onTestComplete(result);
+        } else {
+          toast.error(`Generation failed: ${result.download_error}`);
+        }
       }
     } catch (error) {
       console.error("Error:", error);
@@ -179,6 +198,21 @@ const TestSeleniumForm = ({ onTestComplete }: TestSeleniumFormProps) => {
             )}
           />
           
+          <div className="flex flex-row items-center justify-between rounded-lg border p-4 mb-4">
+            <div className="space-y-0.5">
+              <FormLabel className="text-base">Modalità Simulazione</FormLabel>
+              <FormDescription>
+                Simula le richieste senza un server Selenium
+              </FormDescription>
+            </div>
+            <input
+              type="checkbox"
+              checked={simulateRequest}
+              onChange={() => setSimulateRequest(!simulateRequest)}
+              className="h-4 w-4"
+            />
+          </div>
+          
           <Button 
             type="submit" 
             disabled={isGenerating} 
@@ -192,7 +226,7 @@ const TestSeleniumForm = ({ onTestComplete }: TestSeleniumFormProps) => {
             ) : (
               <>
                 <Music className="mr-2 h-4 w-4" />
-                Generate Song with Suno.ai
+                {simulateRequest ? "Simulate Song Generation" : "Generate Song with Suno.ai"}
               </>
             )}
           </Button>
@@ -211,7 +245,7 @@ const TestSeleniumForm = ({ onTestComplete }: TestSeleniumFormProps) => {
           {testResult.success ? (
             <Button 
               variant="outline" 
-              onClick={() => window.open(testResult.url, '_blank')}
+              onClick={() => testResult.url && window.open(testResult.url, '_blank')}
               className="w-full"
             >
               <Music className="mr-2 h-4 w-4" />

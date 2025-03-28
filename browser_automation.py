@@ -1,4 +1,3 @@
-
 import time
 import random
 import logging
@@ -47,7 +46,86 @@ class SunoAutomation:
         
     def _setup_driver(self):
         """Set up and configure the Chrome WebDriver"""
-        # ... keep existing code (Chrome driver setup logic)
+        try:
+            # Set up Chrome options
+            chrome_options = Options()
+            
+            # Disable automation controlled banner
+            chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            chrome_options.add_experimental_option('useAutomationExtension', False)
+            
+            # Set user agent to mimic a real user
+            user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36"
+            chrome_options.add_argument(f"user-agent={user_agent}")
+            
+            # Handle Chrome profile
+            if self.use_chrome_profile:
+                if self.chrome_user_data_dir:
+                    chrome_options.add_argument(f"user-data-dir={self.chrome_user_data_dir}")
+                    logger.info(f"Using Chrome profile from: {self.chrome_user_data_dir}")
+                else:
+                    logger.warning("Chrome profile directory not specified, using default")
+            
+            # Set headless mode if specified
+            if self.headless:
+                chrome_options.add_argument("--headless")
+                chrome_options.add_argument("--disable-gpu")  # Necessary for some systems
+                chrome_options.add_argument("--window-size=1920x1080")  # Set window size for headless mode
+            
+            # Disable logging to file
+            chrome_options.add_argument("--disable-logging")
+            chrome_options.add_argument("--log-level=3")
+            
+            # Add additional options for security and stability
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--ignore-certificate-errors")
+            chrome_options.add_argument("--disable-popup-blocking")
+            
+            # Set download directory to a temporary directory
+            download_dir = tempfile.mkdtemp()
+            prefs = {"download.default_directory": download_dir,
+                     "download.prompt_for_download": False,
+                     "download.directory_upgrade": True,
+                     "safebrowsing.enabled": False}  # Disable safe browsing to prevent download issues
+            chrome_options.add_experimental_option("prefs", prefs)
+            
+            # Initialize ChromeDriver using ChromeDriverManager
+            try:
+                # Specify the desired Chrome type (Chrome or Chromium)
+                if platform.system() == "Darwin":
+                    # On macOS, use Chromium to avoid compatibility issues
+                    chrome_type = ChromeType.CHROMIUM
+                else:
+                    chrome_type = ChromeType.GOOGLE
+                
+                driver_manager = ChromeDriverManager(chrome_type=chrome_type)
+                service = Service(driver_manager.install())
+                driver = webdriver.Chrome(service=service, options=chrome_options)
+                logger.info("ChromeDriver initialized with ChromeDriverManager")
+            except Exception as e:
+                logger.error(f"Failed to initialize ChromeDriver with ChromeDriverManager: {str(e)}")
+                logger.info("Attempting to use ChromeDriver from system PATH")
+                try:
+                    service = Service()  # Assumes ChromeDriver is in PATH
+                    driver = webdriver.Chrome(service=service, options=chrome_options)
+                    logger.info("ChromeDriver initialized from system PATH")
+                except Exception as ex:
+                    logger.error(f"Failed to initialize ChromeDriver from system PATH: {str(ex)}")
+                    raise ex  # Re-raise the exception to be caught in the main block
+            
+            # Set an implicit wait for elements to load
+            driver.implicitly_wait(10)
+            
+            # Maximize window (if not headless)
+            if not self.headless:
+                driver.maximize_window()
+            
+            return driver
+        except Exception as e:
+            logger.error(f"Driver setup failed: {str(e)}")
+            raise e
     
     def is_connected(self):
         """Check if browser is connected and working"""
@@ -275,199 +353,157 @@ class SunoAutomation:
             self.driver.save_screenshot(screenshot_path)
             logger.info(f"Create page screenshot saved to {screenshot_path}")
             
-            # First, let's try to find the main prompt textarea (this is at the bottom of the page)
+            # Using the provided CSS selectors to interact with UI elements
             try:
-                # Look for the main prompt textarea. There are multiple textareas in the UI now
-                prompt_textareas = self.driver.find_elements(By.CSS_SELECTOR, "textarea")
+                # Find and enter the main prompt textarea - this is the large textarea at the bottom
+                # Since we don't have a specific selector for it, we'll try to find all textareas and use the largest one
+                textareas = self.driver.find_elements(By.CSS_SELECTOR, "textarea")
+                main_textarea = None
                 
-                # The main prompt textarea is the largest one - usually the last in the DOM
-                prompt_textarea = None
-                for textarea in prompt_textareas:
-                    # Check if this textarea is for the prompt (usually the largest or has a specific placeholder)
-                    placeholder = textarea.get_attribute("placeholder")
-                    if placeholder and ("Enter" in placeholder or "Describe" in placeholder):
-                        if not prompt_textarea or textarea.size['height'] > prompt_textarea.size['height']:
-                            prompt_textarea = textarea
+                # Find the textarea that takes most of the space or has no specific placeholder
+                # It's likely to be the main prompt area
+                for textarea in textareas:
+                    if not textarea.get_attribute("placeholder") or "Enter" in textarea.get_attribute("placeholder"):
+                        main_textarea = textarea
+                        break
                 
-                # If we still haven't found it, try getting the last textarea
-                if not prompt_textarea and prompt_textareas:
-                    prompt_textarea = prompt_textareas[-1]
+                if not main_textarea and textareas:
+                    # If we can't identify specifically, take the last textarea which is often the main one
+                    main_textarea = textareas[-1]
                 
-                if prompt_textarea:
+                if main_textarea:
                     logger.info("Found main prompt textarea")
-                    
-                    # Scroll to the textarea
-                    self.driver.execute_script("arguments[0].scrollIntoView(true);", prompt_textarea)
+                    self.driver.execute_script("arguments[0].scrollIntoView(true);", main_textarea)
                     time.sleep(1)
-                    
-                    # Click and enter text
-                    self._human_move_and_click(prompt_textarea)
-                    prompt_textarea.clear()
-                    self._human_type(prompt_textarea, prompt)
+                    self._human_move_and_click(main_textarea)
+                    main_textarea.clear()
+                    self._human_type(main_textarea, prompt)
                     logger.info("Entered prompt text")
-                    
-                    # Handle style input if provided
-                    if style:
-                        # Find the style textarea - usually the second textarea or one with specific placeholder
-                        style_textarea = None
-                        for textarea in prompt_textareas:
-                            placeholder = textarea.get_attribute("placeholder")
-                            if placeholder and ("style" in placeholder.lower() or "music" in placeholder.lower()):
-                                style_textarea = textarea
-                                break
-                        
-                        # If we've found a dedicated style textarea
-                        if style_textarea and style_textarea != prompt_textarea:
-                            logger.info(f"Found style textarea, entering: {style}")
-                            self.driver.execute_script("arguments[0].scrollIntoView(true);", style_textarea)
-                            time.sleep(1)
-                            self._human_move_and_click(style_textarea)
-                            style_textarea.clear()
-                            self._human_type(style_textarea, style)
-                        else:
-                            logger.warning("Could not find a dedicated style textarea")
-                            # Try to find any elements that might relate to style settings
-                            style_elements = self.driver.find_elements(By.XPATH, 
-                                "//*[contains(text(), 'Style of Music') or contains(text(), 'Music Style')]/following::textarea[1]"
-                            )
-                            if style_elements:
-                                logger.info(f"Found style input through text search, entering: {style}")
-                                self.driver.execute_script("arguments[0].scrollIntoView(true);", style_elements[0])
-                                time.sleep(1)
-                                self._human_move_and_click(style_elements[0])
-                                style_elements[0].clear()
-                                self._human_type(style_elements[0], style)
-                    
-                    # Handle title input if provided
-                    if title:
-                        # Look for title input - could be a textarea or specific input field
-                        title_elements = self.driver.find_elements(By.XPATH, 
-                            "//*[contains(text(), 'Title')]/following::textarea[1] | //*[contains(text(), 'Title')]/following::input[1]"
-                        )
-                        
-                        if title_elements:
-                            logger.info(f"Found title input, entering: {title}")
-                            self.driver.execute_script("arguments[0].scrollIntoView(true);", title_elements[0])
-                            time.sleep(1)
-                            self._human_move_and_click(title_elements[0])
-                            title_elements[0].clear()
-                            self._human_type(title_elements[0], title)
-                        else:
-                            # Try to find inputs with title placeholder
-                            title_inputs = self.driver.find_elements(By.CSS_SELECTOR, 
-                                "input[placeholder*='title' i], textarea[placeholder*='title' i]"
-                            )
-                            if title_inputs:
-                                logger.info(f"Found title input by placeholder, entering: {title}")
-                                self.driver.execute_script("arguments[0].scrollIntoView(true);", title_inputs[0])
-                                time.sleep(1)
-                                self._human_move_and_click(title_inputs[0])
-                                title_inputs[0].clear()
-                                self._human_type(title_inputs[0], title)
-                    
-                    # Handle instrumental toggle
-                    if instrumental is not None:
+                else:
+                    logger.error("Could not find main prompt textarea")
+                    return {"success": False, "error": "Could not find prompt textarea"}
+                
+                # Handle style input using the specific selector provided
+                if style:
+                    try:
+                        style_textarea = self.driver.find_element(By.CSS_SELECTOR, 'textarea[placeholder="Enter style of music"]')
+                        logger.info(f"Found style textarea with specific selector, entering: {style}")
+                        self.driver.execute_script("arguments[0].scrollIntoView(true);", style_textarea)
+                        time.sleep(1)
+                        self._human_move_and_click(style_textarea)
+                        style_textarea.clear()
+                        self._human_type(style_textarea, style)
+                    except NoSuchElementException:
+                        logger.warning("Style textarea not found with specific selector, trying alternative methods")
+                        # Try alternative methods to find the style input
                         try:
-                            # Find instrumental toggle by looking for text near it
-                            instrumental_elements = self.driver.find_elements(By.XPATH, 
-                                "//*[contains(text(), 'Instrumental')]"
+                            style_textareas = self.driver.find_elements(By.XPATH, 
+                                "//span[contains(text(), 'Style of Music')]/following::textarea"
                             )
-                            
-                            if instrumental_elements:
-                                # Scroll to the element
-                                self.driver.execute_script("arguments[0].scrollIntoView(true);", instrumental_elements[0])
+                            if style_textareas:
+                                logger.info(f"Found style input through text search, entering: {style}")
+                                self.driver.execute_script("arguments[0].scrollIntoView(true);", style_textareas[0])
                                 time.sleep(1)
-                                
-                                logger.info(f"Found instrumental text, looking for toggle nearby")
-                                
-                                # Look for toggle element nearby - various selectors to try
-                                toggle_selectors = [
-                                    "./ancestor::div[3]//div[contains(@class, 'toggle') or contains(@class, 'switch')]",
-                                    "./ancestor::div[2]//div[@tabindex='0']",
-                                    "./following::div[@tabindex='0'][1]",
-                                    "./ancestor::div[3]//input[@type='checkbox']",
-                                    "./ancestor::*[position()<=4]//div[@role='switch' or contains(@class, 'switch') or contains(@class, 'toggle')]"
-                                ]
-                                
-                                toggle = None
-                                for selector in toggle_selectors:
-                                    try:
-                                        toggle_candidates = instrumental_elements[0].find_elements(By.XPATH, selector)
-                                        if toggle_candidates:
-                                            toggle = toggle_candidates[0]
-                                            break
-                                    except:
-                                        continue
-                                
-                                if toggle:
-                                    # Try to determine the current state of the toggle
-                                    current_state = None
-                                    
-                                    # Method 1: Check aria-checked attribute
-                                    aria_checked = toggle.get_attribute("aria-checked")
-                                    if aria_checked:
-                                        current_state = aria_checked.lower() == "true"
-                                        logger.info(f"Toggle state detected from aria-checked: {current_state}")
-                                    
-                                    # Method 2: Check class contains 'selected', 'active', etc.
-                                    if current_state is None:
-                                        toggle_class = toggle.get_attribute("class")
-                                        if toggle_class:
-                                            active_indicators = ["selected", "active", "checked", "translate-x-4", "translate-x-5"]
-                                            inactive_indicators = ["translate-x-0", "translate-x-1"]
-                                            
-                                            for indicator in active_indicators:
-                                                if indicator in toggle_class:
-                                                    current_state = True
-                                                    logger.info(f"Toggle state detected as ON from class: {toggle_class}")
-                                                    break
-                                                    
-                                            if current_state is None:
-                                                for indicator in inactive_indicators:
-                                                    if indicator in toggle_class:
-                                                        current_state = False
-                                                        logger.info(f"Toggle state detected as OFF from class: {toggle_class}")
-                                                        break
-                                    
-                                    # Method 3: Check background color if state still unknown
-                                    if current_state is None:
-                                        bg_color = toggle.value_of_css_property("background-color")
-                                        if "255" in bg_color or "rgb(1" in bg_color:  # Brighter colors often indicate "on"
-                                            current_state = True
-                                        else:
-                                            current_state = False
-                                        logger.info(f"Toggle state guessed from background color: {current_state}")
-                                    
-                                    # Check if the toggle needs to be changed
-                                    if current_state is not None and current_state != instrumental:
-                                        logger.info(f"Changing instrumental toggle from {current_state} to {instrumental}")
-                                        self._human_move_and_click(toggle)
-                                        time.sleep(1)
-                                    elif current_state is None:
-                                        # If we can't determine the state, click it anyway if we want instrumental
-                                        if instrumental:
-                                            logger.info("Could not determine toggle state, clicking anyway")
-                                            self._human_move_and_click(toggle)
-                                            time.sleep(1)
-                                    else:
-                                        logger.info(f"Instrumental already set to {instrumental}, no action needed")
+                                self._human_move_and_click(style_textareas[0])
+                                style_textareas[0].clear()
+                                self._human_type(style_textareas[0], style)
                         except Exception as e:
-                            logger.warning(f"Failed to interact with instrumental toggle: {e}")
-                    
-                    # Take a screenshot after setting all parameters
-                    self.driver.save_screenshot(os.path.join(os.path.expanduser("~"), "suno_debug_params_set.png"))
-                    
-                    # Find and click the generate/create button - it's usually at the bottom of the form
-                    create_button = None
-                    
-                    # Try multiple approaches to find the button
+                            logger.warning(f"Alternative style input method failed: {e}")
+                
+                # Handle title input using the specific selector provided
+                if title:
+                    try:
+                        title_input = self.driver.find_element(By.CSS_SELECTOR, 'textarea[placeholder="Enter a title"]')
+                        logger.info(f"Found title input with specific selector, entering: {title}")
+                        self.driver.execute_script("arguments[0].scrollIntoView(true);", title_input)
+                        time.sleep(1)
+                        self._human_move_and_click(title_input)
+                        title_input.clear()
+                        self._human_type(title_input, title)
+                    except NoSuchElementException:
+                        logger.warning("Title input not found with specific selector, trying alternative methods")
+                        try:
+                            title_elements = self.driver.find_elements(By.XPATH, 
+                                "//span[contains(text(), 'Title')]/following::textarea"
+                            )
+                            if title_elements:
+                                logger.info(f"Found title input through text search, entering: {title}")
+                                self.driver.execute_script("arguments[0].scrollIntoView(true);", title_elements[0])
+                                time.sleep(1)
+                                self._human_move_and_click(title_elements[0])
+                                title_elements[0].clear()
+                                self._human_type(title_elements[0], title)
+                        except Exception as e:
+                            logger.warning(f"Alternative title input method failed: {e}")
+                
+                # Handle instrumental toggle using the specific selector provided
+                if instrumental is not None:
+                    try:
+                        # First check if the toggle exists
+                        toggle_container = self.driver.find_element(By.CSS_SELECTOR, 'div[aria-label="Instrumental"]')
+                        logger.info("Found instrumental toggle container with specific selector")
+                        
+                        # Check if it's already in the correct state
+                        toggle_span = toggle_container.find_element(By.CSS_SELECTOR, "span")
+                        is_active = "translate-x-4" in toggle_span.get_attribute("class")
+                        
+                        logger.info(f"Instrumental toggle current state: {'active' if is_active else 'inactive'}")
+                        
+                        # Click only if we need to change the state
+                        if is_active != instrumental:
+                            logger.info(f"Clicking instrumental toggle to change from {is_active} to {instrumental}")
+                            self.driver.execute_script("arguments[0].scrollIntoView(true);", toggle_container)
+                            time.sleep(1)
+                            self._human_move_and_click(toggle_container)
+                            time.sleep(1)
+                        else:
+                            logger.info(f"Instrumental toggle already in desired state: {instrumental}")
+                    except NoSuchElementException:
+                        logger.warning("Instrumental toggle not found with specific selector, trying alternative methods")
+                        try:
+                            # Alternative approach using text nearby
+                            toggle_elements = self.driver.find_elements(By.XPATH, 
+                                "//span[contains(text(), 'Instrumental')]/preceding::div[@aria-label and contains(@class, 'inline-flex')]"
+                            )
+                            if toggle_elements:
+                                toggle = toggle_elements[0]
+                                
+                                # Try to determine current state
+                                toggle_class = toggle.get_attribute("class")
+                                is_active = "translate-x-4" in toggle_class
+                                
+                                if is_active != instrumental:
+                                    logger.info(f"Clicking alternative instrumental toggle to change from {is_active} to {instrumental}")
+                                    self.driver.execute_script("arguments[0].scrollIntoView(true);", toggle)
+                                    time.sleep(1)
+                                    self._human_move_and_click(toggle)
+                                    time.sleep(1)
+                        except Exception as e:
+                            logger.warning(f"Alternative instrumental toggle method failed: {e}")
+                
+                # Take a screenshot after setting all parameters
+                self.driver.save_screenshot(os.path.join(os.path.expanduser("~"), "suno_debug_params_set.png"))
+                
+                # Find and click the generate/create button - using multiple approaches
+                create_button = None
+                
+                # Try to find the Create button with class buttonAnimate first (new UI)
+                try:
+                    create_buttons = self.driver.find_elements(By.CSS_SELECTOR, "button.buttonAnimate")
+                    for button in create_buttons:
+                        if button.is_displayed() and "Create" in button.text:
+                            create_button = button
+                            break
+                except:
+                    logger.warning("Could not find Create button with buttonAnimate class")
+                
+                # If not found, try other methods
+                if not create_button:
                     button_locators = [
                         (By.XPATH, "//button[contains(text(), 'Create')]"),
-                        (By.XPATH, "//button[contains(@class, 'buttonAnimate')]"),
-                        (By.XPATH, "//button[contains(text(), 'Create')]/ancestor::div[contains(@class, 'create-button')]"),
-                        (By.CSS_SELECTOR, ".buttonAnimate"),
-                        (By.XPATH, "//div[contains(@class, 'create-button')]//button"),
-                        (By.XPATH, "//button[.//svg and .//span[contains(text(), 'Create')]]")
+                        (By.XPATH, "//button[.//span[contains(text(), 'Create')]]"),
+                        (By.CSS_SELECTOR, ".create-button button"),
+                        (By.XPATH, "//div[contains(@class, 'create-button')]//button")
                     ]
                     
                     for by, locator in button_locators:
@@ -478,100 +514,101 @@ class SunoAutomation:
                                 break
                         if create_button:
                             break
-                    
-                    if not create_button:
-                        logger.error("Could not find the Create button")
-                        return {"success": False, "error": "Could not find the Create button"}
-                    
-                    # Check if the button is enabled
-                    is_disabled = create_button.get_attribute("disabled")
-                    if is_disabled:
-                        logger.warning("Create button is disabled. Checking for input errors or limitations.")
-                        return {"success": False, "error": "Create button is disabled. You may need to check inputs or account limitations."}
-                    
-                    # Scroll to the button
-                    self.driver.execute_script("arguments[0].scrollIntoView(true);", create_button)
-                    time.sleep(1)
-                    
-                    # Take screenshot before clicking
-                    self.driver.save_screenshot(os.path.join(os.path.expanduser("~"), "suno_debug_before_click.png"))
-                    
-                    logger.info("Clicking Create button")
-                    self._human_move_and_click(create_button)
-                    
-                    # Wait for generation to start and complete
-                    logger.info("Waiting for song generation to begin...")
-                    
-                    # First, look for indicators that generation has started
-                    generation_started = False
-                    try:
-                        generating_indicators = [
-                            "//div[contains(text(), 'Creating')]", 
-                            "//div[contains(text(), 'Generating')]",
-                            "//div[contains(@class, 'loading')]",
-                            "//div[contains(@class, 'spinner')]",
-                            "//svg[contains(@class, 'spinner')]",
-                            "//div[contains(text(), 'Please wait')]"
-                        ]
-                        
-                        for indicator in generating_indicators:
-                            try:
-                                WebDriverWait(self.driver, 10).until(
-                                    EC.presence_of_element_located((By.XPATH, indicator))
-                                )
-                                generation_started = True
-                                logger.info(f"Song generation started (detected indicator: {indicator})")
-                                break
-                            except TimeoutException:
-                                continue
-                    except TimeoutException:
-                        pass
-                    
-                    if not generation_started:
-                        # If we didn't see a loading indicator, the song may have generated very quickly
-                        # or we missed the indicator - we'll check for completion indicators anyway
-                        logger.warning("Did not detect generation start indicators - continuing anyway")
-                    
-                    # Wait for indicators that generation is complete (player controls appearing)
-                    completion_indicators = [
-                        "//button[contains(@aria-label, 'Play')]",
-                        "//div[contains(@class, 'player')]",
-                        "//audio",
-                        "//button[contains(@aria-label, 'Download')]",
-                        "//button[contains(text(), 'Download')]",
-                        "//button[contains(text(), 'Share')]"
+                
+                if not create_button:
+                    logger.error("Could not find the Create button")
+                    return {"success": False, "error": "Could not find the Create button"}
+                
+                # Check if the button is enabled
+                is_disabled = create_button.get_attribute("disabled")
+                if is_disabled:
+                    logger.warning("Create button is disabled. This could be due to input errors or account limitations.")
+                    self.driver.save_screenshot(os.path.join(os.path.expanduser("~"), "suno_debug_disabled_button.png"))
+                    return {"success": False, "error": "Create button is disabled. You may need to check inputs or account limitations."}
+                
+                # Scroll to the button
+                self.driver.execute_script("arguments[0].scrollIntoView(true);", create_button)
+                time.sleep(1)
+                
+                # Take screenshot before clicking
+                self.driver.save_screenshot(os.path.join(os.path.expanduser("~"), "suno_debug_before_click.png"))
+                
+                logger.info("Clicking Create button")
+                self._human_move_and_click(create_button)
+                
+                # Wait for generation to start and complete
+                logger.info("Waiting for song generation to begin...")
+                
+                # First, look for indicators that generation has started
+                generation_started = False
+                try:
+                    generating_indicators = [
+                        "//div[contains(text(), 'Creating')]", 
+                        "//div[contains(text(), 'Generating')]",
+                        "//div[contains(@class, 'loading')]",
+                        "//div[contains(@class, 'spinner')]",
+                        "//svg[contains(@class, 'spinner')]",
+                        "//div[contains(text(), 'Please wait')]"
                     ]
                     
-                    generation_completed = False
-                    for indicator in completion_indicators:
+                    for indicator in generating_indicators:
                         try:
-                            WebDriverWait(self.driver, 300).until(  # Wait up to 5 minutes
+                            WebDriverWait(self.driver, 10).until(
                                 EC.presence_of_element_located((By.XPATH, indicator))
                             )
-                            generation_completed = True
-                            logger.info(f"Song generation completed (detected indicator: {indicator})")
+                            generation_started = True
+                            logger.info(f"Song generation started (detected indicator: {indicator})")
                             break
                         except TimeoutException:
                             continue
-                    
-                    if not generation_completed:
-                        logger.error("Song generation timed out or failed")
-                        return {"success": False, "error": "Song generation timed out"}
-                    
-                    # Take a final screenshot
-                    self.driver.save_screenshot(os.path.join(os.path.expanduser("~"), "suno_debug_complete.png"))
-                    
-                    # Get the song URL
-                    song_url = self.driver.current_url
-                    logger.info(f"Generated song URL: {song_url}")
-                    
-                    return {
-                        "success": True, 
-                        "url": song_url, 
-                        "prompt": prompt, 
-                        "style": style, 
-                        "title": title
-                    }
+                except TimeoutException:
+                    pass
+                
+                if not generation_started:
+                    # If we didn't see a loading indicator, the song may have generated very quickly
+                    # or we missed the indicator - we'll check for completion indicators anyway
+                    logger.warning("Did not detect generation start indicators - continuing anyway")
+                
+                # Wait for indicators that generation is complete (player controls appearing)
+                completion_indicators = [
+                    "//button[contains(@aria-label, 'Play')]",
+                    "//div[contains(@class, 'player')]",
+                    "//audio",
+                    "//button[contains(@aria-label, 'Download')]",
+                    "//button[contains(text(), 'Download')]",
+                    "//button[contains(text(), 'Share')]"
+                ]
+                
+                generation_completed = False
+                for indicator in completion_indicators:
+                    try:
+                        WebDriverWait(self.driver, 300).until(  # Wait up to 5 minutes
+                            EC.presence_of_element_located((By.XPATH, indicator))
+                        )
+                        generation_completed = True
+                        logger.info(f"Song generation completed (detected indicator: {indicator})")
+                        break
+                    except TimeoutException:
+                        continue
+                
+                if not generation_completed:
+                    logger.error("Song generation timed out or failed")
+                    return {"success": False, "error": "Song generation timed out"}
+                
+                # Take a final screenshot
+                self.driver.save_screenshot(os.path.join(os.path.expanduser("~"), "suno_debug_complete.png"))
+                
+                # Get the song URL
+                song_url = self.driver.current_url
+                logger.info(f"Generated song URL: {song_url}")
+                
+                return {
+                    "success": True, 
+                    "url": song_url, 
+                    "prompt": prompt, 
+                    "style": style, 
+                    "title": title
+                }
                 else:
                     logger.error("Could not find main prompt textarea")
                     return {"success": False, "error": "Could not find prompt textarea"}
